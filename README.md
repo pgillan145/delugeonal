@@ -2,11 +2,11 @@
 
 A set of scripts and libraries for controlling and organizing a torrent/media infrastructure.
 
-Current (barely) supported software:
-    - Media Servers: Plex
-    - Media Databases: IMDb
-    - Torrent Clients: Deluge 1.3.15
-    - Media Sites: [IPTorrents](https://iptorrents.com)
+Current (barely) supported software:  
+- Media Servers: Plex
+- Media Databases: IMDb
+- Torrent Clients: Deluge 1.3.15
+- Media Sites: [IPTorrents](https://iptorrents.com)
 
 ## Usage
 Add torrent files from a particular directory to your torrent client:
@@ -35,7 +35,7 @@ Note that not all services need to be running on the same machine.  Your torrent
 
 ## Configuration
 
-Copy [sample-config](https://github.com/pgillan145/delugeonal/blob/main/sample-config) to one of these three locations:
+Copy [sample-config](https://github.com/pgillan145/delugeonal/blob/master/sample-config) to one of these three locations:
 ```
     $HOME/delugeonal.conf
     $HONE/.config/delugeonal/delugeonal.conf
