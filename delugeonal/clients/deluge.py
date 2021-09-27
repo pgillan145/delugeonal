@@ -1,4 +1,5 @@
 import delugeonal.torrentclient
+from delugeonal import config, server
 import os
 import re
 import shutil
