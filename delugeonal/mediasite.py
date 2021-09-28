@@ -18,7 +18,9 @@ class site(ABC):
         atexit.register(self.cleanup)
         self.cache = cache
         self.name = "media site"
-        
+        self.url = delugeonal.config[self.site_key]['rss_url']
+        self.dl_type = delugeonal.config[self.site_key]['rss_download_type']
+
         if ('site' not in self.cache): self.cache['site'] = {}
 
     def cleanup(self):
@@ -53,9 +55,10 @@ class site(ABC):
                 exists = server.exists(title, item['season'], item['episode'])
                 uravo.event({"AlertGroup":"server_title", "AlertKey":title, "Severity":"green", "Summary":f"Got {server.name} title for {title}"})
             except:
-                print(f" ... can't get {server.name} title for '{title}'")
-                uravo.event({"AlertGroup":"server_title", "AlertKey":title, "Severity":"yellow", "Summary":f"Can't get {server.name} title for {title}"})
-                #continue
+                if (self.dl_type == 'known'):
+                    print(f" ... FAILED: can't get {server.name} title for '{title}'")
+                    uravo.event({"AlertGroup":"server_title", "AlertKey":title, "Severity":"yellow", "Summary":f"Can't get {server.name} title for {title}"})
+                    continue
 
             if (exists):
                 if (args.verbose): print(f" ... {title} S{item['season']}E{item['episode']} already in {server.name}")

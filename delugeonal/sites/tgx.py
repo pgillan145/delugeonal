@@ -15,9 +15,11 @@ import xml.etree.ElementTree as ET
 
 class MediaSite(delugeonal.mediasite.site):
     def __init__(self):
-        self.site_key = 'ipt'
+        self.site_key = 'tgx'
         super().__init__()
-        self.name = "IPTorrents"
+        #self.url = delugeonal.config['tgx']['rss_url']
+        #self.dl_type = delugeonal.config['tgx']['dl_type']
+        self.name = 'TorrentGalaxy'
 
     # return [{name, title, season, episode, url, codec, resolution}]
     def rss_feed(self, args = minorimpact.default_arg_flags):
@@ -29,13 +31,16 @@ class MediaSite(delugeonal.mediasite.site):
         if (args.verbose): minorimpact.fprint(f"searching {self.name}:")
         for item in root.findall('.//item'):
             name = item.find('title').text
-            
+            category = item.find('category').text
+            if (re.match("TV : Episodes", category) is None):
+                continue
+
             parsed = PTN.parse(name)
             if ('codec' not in parsed or 'resolution' not in parsed):
-                print(f"couldn't parse codec and resolution from {name}")
+                if (args.verbose): print(f"couldn't parse codec and resolution from {name}")
                 continue
             if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
-                print(f"couldn't parse title, season and episode from {name}")
+                if (args.verbose): print(f"couldn't parse title, season and episode from {name}")
                 continue
 
             if (args.verbose): print(f" ... found {name} ")
