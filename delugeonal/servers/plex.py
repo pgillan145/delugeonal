@@ -1,4 +1,5 @@
 import delugeonal.mediaserver
+from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
 from plexapi.server import PlexServer
@@ -8,30 +9,50 @@ import re
 class MediaServer(delugeonal.mediaserver.MediaServer):
     def __init__(self):
         super().__init__()
-        self.plex = None
-        self.name = "plex"
+        self.plex = PlexServer(delugeonal.config['plex']['url'], delugeonal.config['plex']['token'])
+        self.name = "Plex"
 
     def episodes(self, title):
         plex = self.plex
 
-        if (plex is None):
-            plex = PlexServer(delugeonal.config['plex']['url'], delugeonal.config['plex']['token'])
+        if (title is None):
+            raise Exception("title is not defined.")
+        #if (title in self.cache and 'episodes' in self.cache[title]): 
+        #    return self.cache[title]['episodes']
+        if (title not in self.cache): self.cache[title] = {}
 
-        show = None
-        if (show is None and re.search(" \(\d\d\d\d\)$", title)):
-            test_title = re.sub(" \(\d\d\d\d\)$", "", title)
-            try:
-                show = plex.library.section('TV Shows').get(test_title)
-                title = test_title
-            except NotFound as e:
-                pass
-
-        if (show is None):
-            show = plex.library.section('TV Shows').get(title)
+        show = self._show(title)
 
         episodes = []
         for episode in show.episodes():
             episodes.append({'show':show.title, 'episode':episode.index, 'season':episode.parentIndex, 'title':episode.title})
 
+        #self.cache[title]['episodes'] = episodes
+        #self.cache[title]['mod_date'] = datetime.now()
         return episodes
+
+    def _show(self, search_string):
+        """Returns the proper show name for search_string."""
+        if (search_string is None):
+            raise Exception("search string is empty.")
+        if (search_string not in self.cache): self.cache[search_string] = {}
+
+
+        show = None
+        if (re.search(" \(\d\d\d\d\)$", search_string) is not None):
+            test_search_string = re.sub(" \(\d\d\d\d\)$", "", search_string)
+            try:
+                show = self.plex.library.section('TV Shows').get(test_search_string)
+                return show
+            except NotFound as e:
+                pass
+
+        if (show is None):
+            # Let this throw an exception if title is BS, we're all out of options.
+            show = self.plex.library.section('TV Shows').get(search_string)
+            return show
+
+    def show_name(self, search_string):
+        show = self._show(search_string)
+        return show.title
 

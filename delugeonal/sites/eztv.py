@@ -15,12 +15,13 @@ import xml.etree.ElementTree as ET
 
 class MediaSite(delugeonal.mediasite.site):
     def __init__(self):
-        self.site_key = 'ipt'
+        self.site_key = 'eztv'
         super().__init__()
-        self.name = "IPTorrents"
+        self.name = 'eztv'
 
     # return [{name, title, season, episode, url, codec, resolution}]
     def rss_feed(self, args = minorimpact.default_arg_flags):
+        """Retrieve the rss feed for this site and return a list of torrents."""
         items = []
         if (args.debug): print(self.rss_url)
         r = requests.get(self.rss_url)
@@ -29,25 +30,35 @@ class MediaSite(delugeonal.mediasite.site):
         if (args.verbose): minorimpact.fprint(f"searching {self.name}:")
         for item in root.findall('.//item'):
             name = item.find('title').text
-            
+            link_url = item.find('enclosure').attrib['url']
+            if (link_url is None or link_url == ''):
+                if (args.verbose): print(f"couldn't parse link for {name}")
+                continue
+
             parsed = PTN.parse(name)
             if ('codec' not in parsed or 'resolution' not in parsed):
-                print(f"couldn't parse codec and resolution from {name}")
+                if (args.verbose): print(f"couldn't parse codec and resolution from {name}")
                 continue
             if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
-                print(f"couldn't parse title, season and episode from {name}")
+                if (args.verbose): print(f"couldn't parse title, season and episode from {name}")
                 continue
 
             if (args.verbose): print(f" ... found {name} ")
             if (args.debug): print(f"{parsed}")
 
             parsed_title = f"{parsed['title']} ({parsed['year']})" if 'year' in parsed else parsed['title']
-
-            link_url = item.find('link').text
-            if (link_url is None or link_url == ''):
-                continue
             items.append({'name':name, 'title':parsed_title, 'season':parsed['season'], 'episode':parsed['episode'], 'url':link_url, 'codec':parsed['codec'], 'resolution':parsed['resolution']})
         return items
 
     def search(self, search_string, args = minorimpact.default_arg_flags):
-        return []
+        """Search this site and return a list of available torrents."""
+        items = []
+        if (self.search_url is None):
+            raise Exception("search_url is not defined")
+        url = self.search_url + str(search_string)
+        if (args.debug): print(f"{url}")
+        r = requests.get(url)
+        for m in re.findall('<a href="(https:\/\/.*?([^/]+)\.torrent)"', r.text):
+            items.append((m[1], m[0]))
+
+        return items

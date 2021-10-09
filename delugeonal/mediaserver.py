@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-#from . import config
+from . import cache
 #import importlib
 #medialib = config.medialib if hasattr(config, 'medialib') and config.medialib is not None else None
 #if (medialib is None):
@@ -9,14 +9,16 @@ from abc import ABC, abstractmethod
 
 class MediaServer(ABC):
     def __init__(self):
+        if ('server' not in cache): cache['server'] = {}
+        self.cache = cache['server']
         self.name = "media server"
 
     @abstractmethod
     def episodes(self, show):
         pass
 
-    def exists(self, show, season, episode):
-        for ep in self.episodes(show):
+    def exists(self, title, season, episode):
+        for ep in self.episodes(title):
             if (ep['season'] == season and ep['episode'] == episode):
                 return True
         return False
@@ -34,3 +36,8 @@ class MediaServer(ABC):
                 e = { 'season':season, 'episode':episode}
         return e
 
+    @abstractmethod
+    def show_name(self, search_string):
+        """Returns the canonical show name for search_string."""
+        pass
+    

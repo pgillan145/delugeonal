@@ -1,4 +1,5 @@
 import delugeonal.mediadb
+from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
 import imdb
@@ -9,34 +10,51 @@ import sys
 class MediaDb(delugeonal.mediadb.db):
     def __init__(self):
         super().__init__()
-        self.ia = imdb.IMDb()
-        self.result_cache = {}
         self.name = "IMDb"
+        self.types.append('movie')
 
-    def get_id(self, id):
-        item = self.ia.get_movie(id)
-        #dump(item)
-        result = None
-        if (item is not None and "year" in item):
-            result = {"title":item['title'], "kind":item['kind'], "year":item['year']}
+        self.ia = imdb.IMDb()
+        self.results_cache = {}
 
-        return result
+    def get_by_id(self, id):
+        if (id in self.results_cache):
+            return self.results_cache[id]
+        result = self.ia.get_movie(id)
+        item = None
+        if (result is not None and 'year' in result):
+            kind = result['kind']
+            if (kind == 'tv series'): kind = 'tv'
+            if self.istype(kind):
+                title = result['title']
+                re.sub(' \(\d\d\d\d\)$', '', title)
+                item = { 'title':title, 'kind':kind, 'year':result['year'], 'id':id }
+                self.results_cache[id] = item
 
-    def search_title(self, parsed_title):
+        return item
+
+    def search_title(self, title):
         results = []
-        if (parsed_title in self.result_cache):
-            results = self.result_cache[parsed_title]
+        search_year = None
+        if (title in self.results_cache):
+            results = self.results_cache[title]
         else:
-            search_title = re.sub(" \(\d\d\d\d\)$", "", parsed_title.rstrip()).rstrip()
+            search_title = title
+            match = re.search(' \((\d\d\d\d)\)$', search_title)
+            if (match):
+                search_year = match.group(1)
+                search_title = re.sub(' \(\d\d\d\d\)$', '', search_title.rstrip()).rstrip()
+            
             results = self.ia.search_movie(search_title)
-            self.result_cache[parsed_title] = results
+            # We can't use the global cache for this, because we can't pickle it.
+            self.results_cache[title] = results
 
         titles = {}
         for result in results:
-            #dump(result)
-            if (result['kind'] not in ("tv series", "movie") or "year" not in result): continue
-            titles[f"{result['title']} ({result['year']})"] = {"title":result['title'], "year":result['year'], "kind":result['kind']}
-        
+            item = self.get_by_id(result.movieID)
+            if (item is not None):
+                if search_year is not None and int(item['year']) != int(search_year):
+                    continue
+                titles[f"{item['title']} ({item['year']})"] = item
         return titles
 
     def episode(self):
@@ -48,4 +66,31 @@ class MediaDb(delugeonal.mediadb.db):
         #<Movie id:0517711[http] title:_"Babylon 5 (TV Series 1993–1998) - IMDb" The Parliament of Dreams (1994)_>
         pass
 
+    def total_episodes(self, search_title):
+        """Return a dict containing the number of episodes for every season.
 
+        Returns
+        -------
+        dict[season : int] = episodes : int
+        """
+        results = self.search_title(search_title)
+        
+        title = results[list(sorted(results, key = lambda x: fuzz.ratio(results[x]['title'], search_title), reverse=True))[0]]
+        total_episodes = {}
+        if (title is not None):
+            #m = self.get_by_id(title['id'])
+            m = self.ia.get_movie(title['id'])
+            self.ia.update(m, 'episodes')
+            for season in m['episodes']:
+                total_episodes[season] = 0
+                for episode in m['episodes'][season]:
+                    ep = m['episodes'][season][episode]
+                    date = ep['original air date']
+                    if (re.search('\d\d? \w\w\w\.? \d\d\d\d', date) is None): continue
+                    date = re.sub(' (\w\w\w)\. ', r' \1 ', date)
+                    
+                    if (date is None or datetime.strptime(date, '%d %b %Y') > datetime.now()): 
+                        continue
+                    total_episodes[season] = total_episodes[season] + 1
+                    
+        return total_episodes

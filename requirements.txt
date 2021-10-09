@@ -1,0 +1,11 @@
+dumper
+fuzzywuzzy
+IMDbPy
+minorimpact
+parse-torrent-name
+plexapi
+Python-Levenshtein
+pyyaml
+tvdb_v4_official > 1.0.7
+torrentool
+uravo

@@ -1,6 +1,7 @@
 .DS_Store
 cache/*
 log/*
+test/*
 dist/*
 *.egg-info
 *.pyc

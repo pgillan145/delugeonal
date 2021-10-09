@@ -1,5 +1,6 @@
 import argparse
-from . import db, client, config, site
+from . import mediadbs, cache, client, config, mediasites
+from datetime import datetime
 from fuzzywuzzy import fuzz
 import minorimpact
 import os
@@ -16,7 +17,9 @@ def main():
     parser = argparse.ArgumentParser(description="delugeonal")
     parser.add_argument('--add', metavar = 'DIR',  help = "Scan DIR for torrent files, and add them to the client.", nargs=1)
     parser.add_argument('--cleanup',  help = "Remove completed torrents from the client.", action = 'store_true')
-    parser.add_argument('--rss',  help = "Check media site rss feeds for new downloads.", action = 'store_true')
+    parser.add_argument('--clearcache',  help = "Empty the delugeonal cache", action = 'store_true')
+    parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
+    parser.add_argument('--fill', metavar = 'SHOW', help = "search media sites for missing episodes of SHOW", nargs=1)
     parser.add_argument('--move_download', metavar = ('NAME', 'TARGET_DIR'), help = "Move newly downloaded torrent NAME to TARGET_DIR", nargs=2)
     parser.add_argument('--move_media', help = "Move media files from the download directory to the appropriate media folders", action = 'store_true')
     parser.add_argument('--dryrun', help = "Don't actually make any changes", action='store_true')
@@ -30,12 +33,16 @@ def main():
         add(args.add[0], dryrun = args.dryrun, verbose = args.verbose)
     if (args.cleanup):
         cleanup(verbose = args.verbose, yes = args.yes, dryrun = args.dryrun)
+    if (args.clearcache):
+        clearcache(args=args)
     if (args.move_download is not None and len(args.move_download) == 2):
         move_download(args.move_download[0], args.move_download[1], verbose = args.verbose, dryrun = args.dryrun)
     if (args.move_media):
         move_media(verbose = args.verbose, dryrun = args.dryrun, debug = args.debug, yes = args.yes)
     if (args.rss):
         rss(args=args)
+    if (args.fill is not None and len(args.fill) == 1):
+        fill(args.fill[0], args=args)
 
 def add(directory, dryrun=False, verbose=False):
     if (os.path.exists(directory) is False):
@@ -135,7 +142,31 @@ def cleanup(verbose = False, yes = False, dryrun = False):
                         if (free > target):
                             return
 
+def clearcache(args = minorimpact.default_arg_flags):
+    """Remove all the values from the local persistent storage."""
+    if (args.verbose): print(f"clearing cache")
+    cache = {}
+    if (args.verbose): print(f" ... DONE")
+
 def filter_torrents(criteria):
+    """Return a list of torrents from the client matching the values in criteria.
+    
+    Parameters
+    ----------
+    criteria : dict
+            'type': One of a set of predefined searches
+            'description': a human readable summary of what this search does (TODO: Move this into the actual search, since all the other
+                info is there aleady.)
+            'sort': sort torrents by this field, and process them in reverse order.
+            'target': The desired amount of free disk space on the system.  If target is greater than 0, filter torrents will stop analyzing
+                once this value is reached.
+            
+    Returns
+    -------
+    list
+        A list of torrent titles that fit criteria.
+        
+    """
     client_config = client.get_config()
     download_location = client_config['download_location']
     if client_config['move_completed']:
@@ -307,25 +338,33 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
     if ("season" in parsed):
         tv_dir = None
         title = None
+        mediadb = None
+        for db in mediadbs:
+            if (db.istype('tv')): mediadb = db
+
+
         for media_dir in media_dirs:
             if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + parsed_title)):
                 tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + parsed_title
                 title = parsed_title
                 break
-            else:
-                titles = db.search_title(parsed_title)
-                min_lev = 75
-                for t in titles:
-                    lev = fuzz.ratio(t,parsed_title)
-                    if (lev >= min_lev):
-                        if (debug): print(f"{t} (match:{lev})")
-                        if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + t)):
-                            if (debug): print(f"found {media_dir}/{config['default']['tv_dir']}/{t}")
-                            tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + t
-                            title = t
 
         if (title is None):
-            title = db.get_title(parsed_title, year=True, headless=yes)
+            titles = mediadb.search_title(parsed_title)
+            min_lev = 75
+            for t in titles:
+                lev = fuzz.ratio(t,parsed_title)
+                if (lev >= min_lev):
+                    title = t
+                    if (debug): print(f"{t} (match:{lev})")
+                    for media_dir in media_dirs:
+                        if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
+                            if (debug): print(f"found {media_dir}/{config['default']['tv_dir']}/{title}")
+                            tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
+                if (tv_dir is not None): break
+
+        if (title is None):
+            title = mediadb.get_title(parsed_title, year=True, headless=yes)
             if (title is not None):
                 for media_dir in media_dirs:
                     if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
@@ -337,8 +376,6 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
             return
 
         if (tv_dir is None and title is not None):
-            # TODO: Make the user choose which volume
-            # TODO: Confirm with the user before creating this directory
             tv_dir = media_dirs[0] + '/' + config['default']['tv_dir'] + '/' + title
 
         new_basename = basename
@@ -394,8 +431,12 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
                 movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title
                 title = parsed_title
 
+        mediadb = None
+        for db in mediadbs:
+            if (db.istype('movie')): mediadb = db
+        
         if (title is None):
-            title = db.get_title(parsed_title, year=True, headless=yes)
+            title = mediadb.get_title(parsed_title, year=True, headless=yes)
             if (debug):print(f"got {title} from {parsed_title}")
             if (title is not None):
                 for media_dir in media_dirs:
@@ -407,8 +448,6 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
             return
 
         if (movie_dir is None):
-            # TODO: make the user choose which volume to store the movie in, if there are
-            #   multiple.
             movie_dir = media_dirs[0] + '/' + config['default']['movie_dir'] + '/' + title
 
         new_basename = title
@@ -449,7 +488,13 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
 
 def rss(args = minorimpact.default_arg_flags):
     if (args.debug): print(f"delugeonal.rss()")
-    site.rss(args)
+    for site in (mediasites):
+        site.rss(args)
+
+def fill(search_string, args = minorimpact.default_arg_flags):
+    if (args.debug): print(f"delugeonal.fill()")
+    for site in (mediasites):
+        site.fill(search_string, args)
 
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])
