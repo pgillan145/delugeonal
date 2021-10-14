@@ -2,7 +2,7 @@ dumper
 fuzzywuzzy
 IMDbPy
 minorimpact
-parse-torrent-name
+parse-torrent-title
 plexapi
 Python-Levenshtein
 pyyaml

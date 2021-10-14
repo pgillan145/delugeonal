@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from . import cache
+import minorimpact
 #import importlib
 #medialib = config.medialib if hasattr(config, 'medialib') and config.medialib is not None else None
 #if (medialib is None):
@@ -17,8 +18,9 @@ class MediaServer(ABC):
     def episodes(self, show):
         pass
 
-    def exists(self, title, season, episode):
+    def exists(self, title, season, episode, args = minorimpact.default_arg_flags):
         for ep in self.episodes(title):
+            #if (args.debug): print(ep)
             if (ep['season'] == season and ep['episode'] == episode):
                 return True
         return False

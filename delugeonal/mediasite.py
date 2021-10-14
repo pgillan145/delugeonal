@@ -8,6 +8,7 @@ from fuzzywuzzy import fuzz
 import minorimpact
 import os.path
 import pickle
+import PTN
 import re
 import requests
 import sys
@@ -25,7 +26,6 @@ class site(ABC):
         if (self.site_key) not in delugeonal.config:
             raise Exception(f"{self.site_key} is not in the config file")
         self.rss_url = delugeonal.config[self.site_key]['rss_url'] if ('rss_url' in delugeonal.config[self.site_key]) else None
-        self.dl_type = delugeonal.config[self.site_key]['rss_download_type'] if ('rss_download_type' in delugeonal.config[self.site_key]) else "none"
         self.search_url = delugeonal.config[self.site_key]['search_url'] if ('search_url' in delugeonal.config[self.site_key]) else None
 
     def cleanup(self):
@@ -34,12 +34,25 @@ class site(ABC):
     def rss(self, args = minorimpact.default_arg_flags):
         if (args.debug): print("site.rss()")
         if (self.rss_url is None):
-            raise Exception("search_url is not defined")
-        if (self.dl_type is None or self.dl_type == "none"):
-            if(args.debug): print(f"dl_type={self.dl_type}")
-            return
-        for item in self.rss_feed(args):
+            raise Exception("rss_url is not defined")
+
+        for name,url in self.rss_feed(args):
+            parsed = PTN.parse(name)
+                
+            if ('codec' not in parsed):
+                if (args.debug): print(f"couldn't parse codec from {name}")
+                continue
+            if ('resolution' not in parsed):
+                if (args.debug): print(f"couldn't parse resolution from {name}")
+                continue
+            if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
+                if (args.debug): print(f"couldn't parse title, season or episode from {name}")
+                continue
+            if (args.debug): print(f"{parsed}")
+
+            item = { 'name':name, 'title':parsed['title'], 'season':parsed['season'], 'episode':parsed['episode'], 'url':url, 'codec':parsed['codec'], 'resolution':parsed['resolution']}
             if(args.debug): print(f"{item}")
+
             item_title = f"{item['title']} ({item['year']})" if 'year' in item else item['title']
             if (args.debug): print(f"{item_title}")
             if (item['codec'] != config['default']['codec']):
@@ -58,7 +71,7 @@ class site(ABC):
                         break
             if (title is None):
                 uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':f"Can't get {db.name} title for {item_title}"})
-                print(f" ... FAILED: couldn't find {db.name} title for {item_title}")
+                if (args.verbose): print(f" ... FAILED: couldn't find {db.name} title for {item_title}")
                 continue
             uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':f"Can't get {db.name} title for {item_title}"})
 
@@ -70,14 +83,13 @@ class site(ABC):
 
             exists = False
             try:
-                exists = server.exists(title, item['season'], item['episode'])
-                uravo.event({"AlertGroup":"server_title", "AlertKey":title, "Severity":"green", "Summary":f"Got {server.name} title for {title}"})
-            except:
-                if (self.dl_type == 'known'):
-                    print(f" ... FAILED: can't get {server.name} title for '{title}'")
-                    uravo.event({"AlertGroup":"server_title", "AlertKey":title, "Severity":"yellow", "Summary":f"Can't get {server.name} title for {title}"})
-                    continue
-
+                exists = server.exists(title, item['season'], item['episode'], args = args)
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':f"Got {server.name} title for '{title}'"})
+            except Exception as e:
+                if (args.verbose): print(f" ... FAILED: can't get {server.name} title for '{title}'")
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':f"Can't get {server.name} title for '{title}'"})
+                continue
+            
             if (exists):
                 if (args.verbose): print(f" ... {title} S{item['season']}E{item['episode']} already in {server.name}")
                 continue
@@ -178,10 +190,11 @@ class site(ABC):
         Returns
         -------
         list
-            name : str
-                The torrent name.
-            url : str
-                The full download url.
+            dict
+                name : str
+                    The torrent name.
+                url : str
+                    The full download url.
         """
         pass
 

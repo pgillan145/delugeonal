@@ -35,22 +35,22 @@ class MediaSite(delugeonal.mediasite.site):
             if (re.match("TV : Episodes", category) is None):
                 continue
 
-            parsed = PTN.parse(name)
-            if ('codec' not in parsed or 'resolution' not in parsed):
-                if (args.verbose): print(f"couldn't parse codec and resolution from {name}")
-                continue
-            if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
-                if (args.verbose): print(f"couldn't parse title, season and episode from {name}")
-                continue
+            #parsed = PTN.parse(name)
+            #if ('codec' not in parsed or 'resolution' not in parsed):
+            #    if (args.verbose): print(f"couldn't parse codec and resolution from {name}")
+            #    continue
+            #if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
+            #    if (args.verbose): print(f"couldn't parse title, season and episode from {name}")
+            #    continue
 
-            if (args.verbose): print(f" ... found {name} ")
-            if (args.debug): print(f"{parsed}")
+            #if (args.debug): print(f"{parsed}")
 
-            parsed_title = f"{parsed['title']} ({parsed['year']})" if 'year' in parsed else parsed['title']
+            #parsed_title = f"{parsed['title']} ({parsed['year']})" if 'year' in parsed else parsed['title']
 
             link_url = item.find('link').text
-            if (link_url is None or link_url == ''):
+            if (name is None or name == '' or link_url is None or link_url == ''):
                 continue
-            items.append({'name':name, 'title':parsed_title, 'season':parsed['season'], 'episode':parsed['episode'], 'url':link_url, 'codec':parsed['codec'], 'resolution':parsed['resolution']})
+            if (args.debug): print(f" ... found {name} ")
+            items.append((name, link_url))
         return items
         

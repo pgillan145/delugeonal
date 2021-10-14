@@ -1,6 +1,7 @@
 import argparse
 from . import mediadbs, cache, client, config, mediasites
 from datetime import datetime
+from dumper import dump
 from fuzzywuzzy import fuzz
 import minorimpact
 import os
@@ -17,7 +18,8 @@ def main():
     parser = argparse.ArgumentParser(description="delugeonal")
     parser.add_argument('--add', metavar = 'DIR',  help = "Scan DIR for torrent files, and add them to the client.", nargs=1)
     parser.add_argument('--cleanup',  help = "Remove completed torrents from the client.", action = 'store_true')
-    parser.add_argument('--clearcache',  help = "Empty the delugeonal cache", action = 'store_true')
+    parser.add_argument('--clear_cache',  help = "Empty the delugeonal cache.", action = 'store_true')
+    parser.add_argument('--dump_cache',  help = "Dump the delugeonal cache to stdout.", action = 'store_true')
     parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
     parser.add_argument('--fill', metavar = 'SHOW', help = "search media sites for missing episodes of SHOW", nargs=1)
     parser.add_argument('--move_download', metavar = ('NAME', 'TARGET_DIR'), help = "Move newly downloaded torrent NAME to TARGET_DIR", nargs=2)
@@ -30,24 +32,26 @@ def main():
     args = parser.parse_args()
     if (args.dryrun): args.verbose = True
     if (args.add is not None and len(args.add) == 1):
-        add(args.add[0], dryrun = args.dryrun, verbose = args.verbose)
+        add(args.add[0], args = args)
     if (args.cleanup):
-        cleanup(verbose = args.verbose, yes = args.yes, dryrun = args.dryrun)
-    if (args.clearcache):
-        clearcache(args=args)
+        cleanup(args = args)
+    if (args.clear_cache):
+        clear_cache(args = args)
+    if (args.dump_cache):
+        dump_cache(args = args)
     if (args.move_download is not None and len(args.move_download) == 2):
-        move_download(args.move_download[0], args.move_download[1], verbose = args.verbose, dryrun = args.dryrun)
+        move_download(args.move_download[0], args.move_download[1], args = args)
     if (args.move_media):
-        move_media(verbose = args.verbose, dryrun = args.dryrun, debug = args.debug, yes = args.yes)
+        move_media(args = args)
     if (args.rss):
-        rss(args=args)
+        rss(args = args)
     if (args.fill is not None and len(args.fill) == 1):
-        fill(args.fill[0], args=args)
+        fill(args.fill[0], args = args)
 
-def add(directory, dryrun=False, verbose=False):
+def add(directory, args = minorimpact.default_arg_flags):
     if (os.path.exists(directory) is False):
         sys.exit(f"'{directory}' doesn't exist")
-    if (dryrun): verbose = True
+    if (args.dryrun): verbose = True
 
     total, used, free = shutil.disk_usage('/')
     target_free = total * .05
@@ -57,9 +61,9 @@ def add(directory, dryrun=False, verbose=False):
         if (re.search('.torrent$', f)):
             data = directory + "/" + f
             t = Torrent.from_file(data)
-            if (verbose): print(f"{t}\nsize:{minorimpact.disksize(t.total_size, units='b')}")
+            if (args.verbose): print(f"{t}\nsize:{minorimpact.disksize(t.total_size, units='b')}")
             if (free - t.total_size < target_free):
-                if (verbose): print(f"not enough free space for {f}")
+                if (args.verbose): print(f"not enough free space for {f}")
                 continue
             free = free - t.total_size
         elif (re.search('.magnet$', f)):
@@ -70,33 +74,33 @@ def add(directory, dryrun=False, verbose=False):
             #   essentially add all magnets, since 'free' is not adjusted down after each one is added.)
             #   Maybe use this? https://github.com/webtorrent/torrent-discovery
             if (free < target_free):
-                if (verbose): print(f"not enough free space for {f}")
+                if (args.verbose): print(f"not enough free space for {f}")
                 continue
 
         if (data is None):
             continue
 
-        if (verbose): print(f"adding {f}")
-        if (dryrun is False):
+        if (args.verbose): print(f"adding {f}")
+        if (args.dryrun is False):
             add_torrent = client.add_torrent(data)
-            if (verbose): print(f"{add_torrent}")
+            if (args.verbose): print(f"{add_torrent}")
             if (re.search("Torrent added!", add_torrent)):
-                if (verbose): print(f"deleting {f}")
+                if (args.verbose): print(f"deleting {f}")
                 os.remove(directory + '/' + f)
 
-def cleanup(verbose = False, yes = False, dryrun = False):
+def cleanup(args = minorimpact.default_arg_flags):
     client_config = client.get_config()
     download_dir = client_config['download_location']
     total, used, free = shutil.disk_usage('/')
     target_free = total * .05
-    if (verbose): print(f"free space:{minorimpact.disksize(free, units='b')}/{minorimpact.disksize(target_free, units='b')}")
+    if (args.verbose): print(f"free space:{minorimpact.disksize(free, units='b')}/{minorimpact.disksize(target_free, units='b')}")
 
     # Figure out how much space we *actually* need to free up based on what's waiting in the download queue.
     for f in os.listdir(download_dir):
         data = None
         if (re.search('.torrent$', f)):
             t = Torrent.from_file(download_dir + '/' + f)
-            if (verbose): print(f"need additional space for {t}:{minorimpact.disksize(t.total_size, units='b')}")
+            if (args.verbose): print(f"need additional space for {t}:{minorimpact.disksize(t.total_size, units='b')}")
             target_free = target_free + t.total_size
 
     #delete_torrents('notracker', description = "torrents with no tracker", verbose = verbose)
@@ -123,30 +127,35 @@ def cleanup(verbose = False, yes = False, dryrun = False):
                 return
 
         description = criteria['description'] if 'description' in criteria else None
-        if (verbose and description is not None): print(f"checking for {description}")
+        if (args.verbose and description is not None): print(f"checking for {description}")
         delete = filter_torrents(criteria)
         for f in delete:
-            if (verbose): print(f"deleting {f}")
+            if (args.verbose): print(f"deleting {f}")
             info = client.get_info(f)
-            if (verbose): print(f"  ratio:{info[f]['ratio']:.1f} seedtime:{info[f]['seedtime']/(3600*24):.1f} state:{info[f]['state']} size:{minorimpact.disksize(info[f]['size'])}")
-            if (verbose): print(f"  Tracker: {info[f]['tracker']}/{info[f]['trackerstatus']}")
-            if (verbose): print(f"  file:{info[f]['data_file']}")
-            c = 'y' if (yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {f}? (Y/n) ", echo=True).lower()
+            if (args.verbose): print(f"  ratio:{info[f]['ratio']:.1f} seedtime:{info[f]['seedtime']/(3600*24):.1f} state:{info[f]['state']} size:{minorimpact.disksize(info[f]['size'])}")
+            if (args.verbose): print(f"  Tracker: {info[f]['tracker']}/{info[f]['trackerstatus']}")
+            if (args.verbose): print(f"  file:{info[f]['data_file']}")
+            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {f}? (Y/n) ", echo=True).lower()
             if (c == 'y'):
-                if (dryrun is False):
+                if (args.dryrun is False):
                     del_torrent = client.delete_torrent(f, remove_data=True)
                     time.sleep(1)
-                    if (verbose): print(del_torrent)
+                    if (args.verbose): print(del_torrent)
                     if (target > 0):
                         total, used, free = shutil.disk_usage('/')
                         if (free > target):
                             return
 
-def clearcache(args = minorimpact.default_arg_flags):
+def clear_cache(args = minorimpact.default_arg_flags):
     """Remove all the values from the local persistent storage."""
     if (args.verbose): print(f"clearing cache")
-    cache = {}
+    keys = list(cache.keys())
+    [cache.pop(key) for key in keys]
     if (args.verbose): print(f" ... DONE")
+    dump_cache(args)
+
+def dump_cache(args = minorimpact.default_arg_flags):
+    dump(cache)
 
 def filter_torrents(criteria):
     """Return a list of torrents from the client matching the values in criteria.
@@ -248,15 +257,15 @@ def meta_info(parsed, fields, delim='.'):
     return meta_info
 
 def move_download(name, target, verbose = False, dryrun = False):
-    if (verbose): print(f"moving {name} to {target}")
-    if (dryrun is False):
+    if (args.verbose): print(f"moving {name} to {target}")
+    if (args.dryrun is False):
         try:
             client.move_torrent(name, target)
         except Exception as e:
             print(f"ERROR: {e}")
     return
 
-def move_media(verbose = False, dryrun = False, debug = False, yes = False):
+def move_media(args = minorimpact.default_arg_flags):
     download_dir = config['default']['download_dir']
     files = {}
     churn = 1
@@ -269,7 +278,7 @@ def move_media(verbose = False, dryrun = False, debug = False, yes = False):
             if (f in files):
                 if (size == files[f]['size'] and files[f]['mtime'] == mtime):
                     if (files[f]['state'] != 'done'):
-                        process_media_dir(download_dir + '/' + f, verbose = verbose, dryrun = dryrun, debug = debug, yes = yes)
+                        process_media_dir(download_dir + '/' + f, args = args)
                         files[f]['state'] = 'done'
                 else:
                     churn = churn + 1
@@ -287,7 +296,7 @@ def move_media(verbose = False, dryrun = False, debug = False, yes = False):
         time.sleep(1)
     return
 
-def process_media_dir(filename, verbose = False, dryrun = False, debug = False, yes = False):
+def process_media_dir(filename, args = minorimpact.default_arg_flags):
     media_dirs = eval(config['default']['media_dirs'])
     search_history = {}
     video_formats = ['mp4', 'mkv', 'avi', 'mpg', 'mpeg', 'm4v']
@@ -297,10 +306,10 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
         for f in os.listdir(filename):
             if (re.match('\.', f) or re.match('Sample', f)): continue
             if (re.search('\.(' + video_regex + '|rar)$', f)):
-                process_media_dir(filename + '/' + f, verbose = verbose, dryrun = dryrun, debug = debug, yes = yes)
+                process_media_dir(filename + '/' + f, args = args)
         return
 
-    if (verbose): print(f"processing {filename}")
+    if (args.verbose): print(f"processing {filename}")
     data = {}
     basename = os.path.basename(filename)
     dirname = os.path.dirname(filename)
@@ -311,8 +320,8 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
             namelist = rf.namelist()
             new_file = namelist[0]
             if (re.search("\.(" + video_regex + ")$", new_file) and len(namelist) == 1):
-                if (verbose):print(f"extracting {basename}.{extension}")
-                if (dryrun is False):
+                if (args.verbose):print(f"extracting {basename}.{extension}")
+                if (args.dryrun is False):
                     try:
                         rf.extractall(path=dirname)
                     except Exception as e:
@@ -331,7 +340,7 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
     if ("codec" in parsed and parsed['codec'] == "H.265"): parsed['codec'] = "HEVC.x265"
     if ("codec" in parsed and parsed['codec'] == "H.264"): parsed['codec'] = "x264"
 
-    if (debug): print(f"{basename}:{parsed}")
+    if (args.debug): print(f"{basename}:{parsed}")
     # TODO: Dedup all this code to find a name in the tv and movie sections.
     parsed_title = f"{parsed['title']} ({parsed['year']})" if "year" in parsed else parsed["title"]
 
@@ -339,9 +348,6 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
         tv_dir = None
         title = None
         mediadb = None
-        for db in mediadbs:
-            if (db.istype('tv')): mediadb = db
-
 
         for media_dir in media_dirs:
             if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + parsed_title)):
@@ -349,31 +355,43 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
                 title = parsed_title
                 break
 
+        # This isn't just a copy of mediadb.get_title() -- I want to scan through the results of a search and see if any of them match the
+        #   directories we already have, which might save us from having to ask the user for a match. 
         if (title is None):
-            titles = mediadb.search_title(parsed_title)
-            min_lev = 75
-            for t in titles:
-                lev = fuzz.ratio(t,parsed_title)
-                if (lev >= min_lev):
-                    title = t
-                    if (debug): print(f"{t} (match:{lev})")
-                    for media_dir in media_dirs:
-                        if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
-                            if (debug): print(f"found {media_dir}/{config['default']['tv_dir']}/{title}")
-                            tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
-                if (tv_dir is not None): break
+            titles = {}
+            for db in mediadbs:
+                if (db != mediadb and db.istype('tv')):
+                    titles = db.search_title(parsed_title)
+                    if (len(titles.keys()) > 0):
+                        mediadb = db
+                        break
+            if (len(titles.keys()) > 0):
+                min_lev = 75
+                for t in titles:
+                    lev = fuzz.ratio(t,parsed_title)
+                    if (lev >= min_lev):
+                        title = t
+                        if (args.debug): print(f"{t} (match:{lev})")
+                        for media_dir in media_dirs:
+                            if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
+                                if (args.debug): print(f"found {media_dir}/{config['default']['tv_dir']}/{title}")
+                                tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
+                    if (tv_dir is not None): break
 
+        # We didn't find a close match in any of the existing directories, so let let mediadb do whatever it needs to do to find
+        #   a match.
         if (title is None):
-            title = mediadb.get_title(parsed_title, year=True, headless=yes)
+            title = mediadb.get_title(parsed_title, year=True, headless = args.yes)
             if (title is not None):
                 for media_dir in media_dirs:
                     if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
                         tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
 
         if (tv_dir is None and title is None):
-            print(f"Can't find a valid directory for {filename}")
-            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=3, Summary=f"Can't find a valid directory for {filename}")
+            print(f"Can't find a valid title for {filename}")
+            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=3, Summary=f"Can't find a valid title for {filename}")
             return
+        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary=f"Found a valid title for {filename}:{title}")
 
         if (tv_dir is None and title is not None):
             tv_dir = media_dirs[0] + '/' + config['default']['tv_dir'] + '/' + title
@@ -388,40 +406,40 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
                 meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
                 if (len(meta) > 0):
                     new_basename = new_basename + '.' + meta
-                if (debug): print(f"{new_basename}")
+                if (args.debug): print(f"{new_basename}")
 
-        if (os.path.exists(tv_dir + "/" + new_basename + "." + extension) and yes):
+        if (os.path.exists(tv_dir + "/" + new_basename + "." + extension) and args.yes):
             uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=3, Summary=f"{tv_dir}/{new_basename}.{extension} already exists.")
-            if (verbose): print(f"{tv_dir}/{new_basename}.{extension} already exists.")
+            if (args.verbose): print(f"{tv_dir}/{new_basename}.{extension} already exists.")
             return
-
         uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=0, Summary=f"{tv_dir}/{new_basename}.{extension} doesn't exist.")
+
         # Get user confimation before we move/delete anything.
-        c = 'y' if (yes) else minorimpact.getChar(default='y', end='\n', prompt=f"move {basename}.{extension} to {tv_dir}/{new_basename}.{extension}? (Y/n) ", echo=True).lower()
+        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"move {basename}.{extension} to {tv_dir}/{new_basename}.{extension}? (Y/n) ", echo=True).lower()
         if (c == 'y'):
-            if (verbose): print(f"moving {basename}.{extension} to {tv_dir}/{new_basename}.{extension}")
-            if (dryrun is False):
+            if (args.verbose): print(f"moving {basename}.{extension} to {tv_dir}/{new_basename}.{extension}")
+            if (args.dryrun is False):
                 if (os.path.exists(tv_dir) is False):
-                    if (verbose): print(f"creating {tv_dir}")
+                    if (args.verbose): print(f"creating {tv_dir}")
                     os.mkdir(tv_dir)
             if (os.path.exists(tv_dir + '/' + new_basename + '.' + extension)):
                 c = minorimpact.getChar(default='n', end='\n', prompt=f"overwrite {tv_dir}/{new_basename}.{extension}? (y/N) ", echo=True).lower()
                 if (c == 'n'):
                     return
 
-            if (dryrun is False):
+            if (args.dryrun is False):
                 shutil.move(filename, tv_dir + '/' + new_basename + '.' + extension)
                 uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary=f"moved {basename}.{extension} to {tv_dir}")
             if (os.path.exists(dirname + '/' + basename + '.srt')):
-                if (verbose): print(f"moving {basename}.srt to {tv_dir}/{new_basename}.en.srt")
-                if (dryrun is False):
+                if (args.verbose): print(f"moving {basename}.srt to {tv_dir}/{new_basename}.en.srt")
+                if (args.dryrun is False):
                     shutil.move(dirname + '/' + basename + '.srt', tv_dir + '/' + new_basename + '.en.srt')
 
             if (dirname != config['default']['download_dir'] and media_files(dirname, video_formats = video_formats) == 0):
-                c = 'y' if (yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {dirname}? (Y/n) ", echo=True).lower()
+                c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {dirname}? (Y/n) ", echo=True).lower()
                 if (c == 'y'):
-                    if (verbose): print(f"deleting {dirname}")
-                    if (dryrun == False): shutil.rmtree(dirname)
+                    if (args.verbose): print(f"deleting {dirname}")
+                    if (args.dryrun == False): shutil.rmtree(dirname)
     else:
         # TODO: This code is almost identical to the code in the tv section, I think a lot of it can be moved into a function.
         title = None
@@ -436,8 +454,8 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
             if (db.istype('movie')): mediadb = db
         
         if (title is None):
-            title = mediadb.get_title(parsed_title, year=True, headless=yes)
-            if (debug):print(f"got {title} from {parsed_title}")
+            title = mediadb.get_title(parsed_title, year=True, headless = args.yes)
+            if (args.debug):print(f"got {title} from {parsed_title}")
             if (title is not None):
                 for media_dir in media_dirs:
                     if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + title)):
@@ -455,35 +473,35 @@ def process_media_dir(filename, verbose = False, dryrun = False, debug = False, 
         if (len(meta) > 0):
             new_basename = new_basename + ' - ' + meta
 
-        if (os.path.exists(movie_dir + '/' + new_basename + '.' + extension) and yes):
+        if (os.path.exists(movie_dir + '/' + new_basename + '.' + extension) and args.yes):
             uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=3, Summary=f"{movie_dir}/{new_basename}.{extension} already exists.")
-            if (verbose): print(f"{movie_dir}/{new_basename}.{extension} already exists.");
+            if (args.verbose): print(f"{movie_dir}/{new_basename}.{extension} already exists.");
             return
         uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=0, Summary=f"{movie_dir}/{new_basename}.{extension} doesn't exist.")
 
         # Move and delete the file.
-        c = 'y' if (yes) else minorimpact.getChar(default='y', end='\n', prompt=f"move {basename}.{extension} to {movie_dir}/{new_basename}.{extension}? (Y/n) ", echo=True).lower()
+        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"move {basename}.{extension} to {movie_dir}/{new_basename}.{extension}? (Y/n) ", echo=True).lower()
         if (c == 'y'):
-            if (dryrun is False and os.path.exists(movie_dir) is False):
-                if (verbose): print(f"making {movie_dir}")
+            if (args.dryrun is False and os.path.exists(movie_dir) is False):
+                if (args.verbose): print(f"making {movie_dir}")
                 os.mkdir(movie_dir)
             if (os.path.exists(movie_dir + '/' + new_basename + '.' + extension)):
                 c = minorimpact.getChar(default='n', end='\n', prompt=f"overwrite {movie_dir}/{new_basename}.{extension}? (y/N) ", echo=True).lower()
                 if (c == 'n'):
                     return
-            if (verbose): print(f"moving {basename}.{extension} to {new_basename}.{extension}")
-            if (dryrun == False):
+            if (args.verbose): print(f"moving {basename}.{extension} to {new_basename}.{extension}")
+            if (args.dryrun == False):
                     shutil.move(filename, movie_dir + '/' + new_basename + '.' + extension)
                     uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary=f"moved {basename}.{extension} to {movie_dir}/{new_basename}.{extension}")
             if (os.path.exists(dirname + '/' + basename + '.srt')):
-                if (verbose): print(f"moving {basename}.srt to {movie_dir}/{new_basename}.en.srt")
-                if (dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + new_basename + '.en.srt')
+                if (args.verbose): print(f"moving {basename}.srt to {movie_dir}/{new_basename}.en.srt")
+                if (args.dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + new_basename + '.en.srt')
 
             if (dirname != config['default']['download_dir'] and media_files(dirname, video_formats = video_formats) == 0):
-                c = 'y' if (yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {dirname}? (Y/n) ", echo=True).lower()
+                c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {dirname}? (Y/n) ", echo=True).lower()
                 if (c == 'y'):
-                    if (verbose): print(f"deleting {dirname}")
-                    if (dryrun == False): shutil.rmtree(dirname)
+                    if (args.verbose): print(f"deleting {dirname}")
+                    if (args.dryrun == False): shutil.rmtree(dirname)
     return
 
 def rss(args = minorimpact.default_arg_flags):
@@ -506,11 +524,11 @@ def transform(title, season, episode):
             match = re.search("^([a-z]+)([=<>]+)([0-9]+)$", transform['criteria'])
             if (match):
                 criteria = {"field":match.group(1), "cmp":match.group(2), "value":match.group(3)}
-                #if (debug): print(f"criteria:{criteria}")
+                #if (args.debug): print(f"criteria:{criteria}")
             match = re.search("^([a-z]+)([+-])([0-9]+)$", transform['action'])
             if (match):
                 action = {"field":match.group(1), "action":match.group(2), "value":match.group(3)}
-                #if (debug): print(f"action:{action}")
+                #if (args.debug): print(f"action:{action}")
 
             if (criteria and action):
                 transformation = {'season': season, 'episode':episode}

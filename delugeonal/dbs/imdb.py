@@ -12,6 +12,7 @@ class MediaDb(delugeonal.mediadb.db):
         super().__init__()
         self.name = "IMDb"
         self.types.append('movie')
+        self.types.append('tv')
 
         self.ia = imdb.IMDb()
         self.results_cache = {}
@@ -19,17 +20,19 @@ class MediaDb(delugeonal.mediadb.db):
     def get_by_id(self, id):
         if (id in self.results_cache):
             return self.results_cache[id]
-        result = self.ia.get_movie(id)
+        if (result is None):
+            result = self.ia.get_movie(id)
+        return self.parse_record(result)
+
+    def parse_record(self, data):
         item = None
-        if (result is not None and 'year' in result):
-            kind = result['kind']
+        if (data is not None and 'year' in data):
+            kind = data['kind']
             if (kind == 'tv series'): kind = 'tv'
             if self.istype(kind):
-                title = result['title']
+                title = data['title']
                 re.sub(' \(\d\d\d\d\)$', '', title)
-                item = { 'title':title, 'kind':kind, 'year':result['year'], 'id':id }
-                self.results_cache[id] = item
-
+                item = { 'title':title, 'kind':kind, 'year':data['year'], 'id':id }
         return item
 
     def search_title(self, title):
@@ -50,7 +53,7 @@ class MediaDb(delugeonal.mediadb.db):
 
         titles = {}
         for result in results:
-            item = self.get_by_id(result.movieID)
+            item = self.parse_record(result)
             if (item is not None):
                 if search_year is not None and int(item['year']) != int(search_year):
                     continue

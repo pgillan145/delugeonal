@@ -16,6 +16,16 @@ class db(ABC):
         self.name = "media db"
         self.types = []
         atexit.register(self.cleanup)
+        self.match_log = None
+        if ('match_debug_log' in config['default'] and config['default']['match_debug_log']):
+            try:
+                self.match_log = open(config['default']['match_debug_log'], 'a')
+            except Exception as e:
+                if (args.verbose): print(f"{e}")
+
+    def __del__(self):
+        if (self.match_log is not None):
+            self.match_log.close()
 
     def cleanup(self):
         pass
@@ -38,91 +48,83 @@ class db(ABC):
         """ 
         pass
 
-    def get_title(self, parsed_title, year=True, headless=True):
+    def get_title(self, name, year=True, headless=True):
         title = None
+        title_year = None
 
-        if (parsed_title in self.cache and 'title' in self.cache[parsed_title]):
-            title = self.cache[parsed_title]['title']
-            if (year is True): title = f"{title} ({self.cache[parsed_title]['year']})"
-            return title
+        if (name in self.cache and 'title' in self.cache[name]):
+            title = self.cache[name]['title']
+            title_year = self.cache[name]['year']
+        else:
+            titles = self.search_title(name)
+            if (titles is not None and len(titles) > 0):
+                if (name in titles):
+                    # Exact match, we got lucky
+                    title = titles[name]['title']
+                    title_year = titles[name]['year']
+                else:
+                    parsed_year = None
+                    match = re.search(' \((\d\d\d\d)\)$', name)
+                    if (match):
+                        # Our title came in with a year -- use it
+                        parsed_year = match.group(1)
 
-        titles = self.search_title(parsed_title)
-        if (titles is None):
-            return None
+                    # See if what we got is within 15% of perfect.  If so, let's use it.
+                    max_lev = 85
+                    for t in titles:
+                        if (parsed_year and titles[t]['year'] != parsed_year): continue
+                        search_t = t
+                        if (parsed_year is None):
+                            search_t = re.sub(' \(\d\d\d\d\)', '', search_t)
+                        lev = fuzz.ratio(search_t.lower(),name.lower())
+                        if (lev > max_lev):
+                            title = titles[t]['title']
+                            title_year = titles[t]['year']
+                            max_lev = lev
 
-        if (parsed_title in titles):
-            self.cache[parsed_title]['title'] = titles[parsed_title]['title']
-            self.cache[parsed_title]['year'] = titles[parsed_title]['year']
-            self.cache[parsed_title]['mod_date'] = datetime.now()
-            title = titles[parsed_title]['title']
-            if (year is True): title = f"{title} ({titles[parsed_title]['year']})"
-            return title
-
-        parsed_year = None
-        search_title = parsed_title
-        match = re.search(" \((\d\d\d\d)\)$", parsed_title)
-        if (match):
-            parsed_year = match.group(1)
-            search_title = re.sub(" \(\d\d\d\d\)$", "", parsed_title)
-
-        max_lev = 85
-        for t in titles:
-            #if (parsed_year and titles[t]["year"] != parsed_year): continue
-            search_t = t
-            if (parsed_year is None):
-                search_t = re.sub(" \(\d\d\d\d\)", "", search_t)
-            lev = fuzz.ratio(search_t.lower(),parsed_title.lower())
-            if (lev > max_lev):
-                title = t
-                max_lev = lev
+                    # Nothing was a great match, so if we're not in cron mode, ask a grown-up for help.
+                    if (title is None and headless is False):
+                        search_title = re.sub(' \(\d\d\d\d\)$', '', name)
+                        i = 0
+                        items = {}
+                        print(f"Searching for '{search_title}':")
+                        for t in titles:
+                            items[i] = t
+                            i = i + 1
+                            output = f"{i:-2d} {t} (match:{fuzz.ratio(t.lower(),search_title.lower())})"
+                            print(output)
+                        pick = input("Choose a title/enter id/enter a name manually: ").rstrip()
+                        if (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
+                            pick_title = items[int(pick) - 1]
+                            match = re.search(" \((\d\d\d\d)\)$", pick_title)
+                            if (match):
+                                pick_year = match.group(1)
+                                pick_title = re.sub(' \(\d\d\d\d\)$', '', pick_title)
+                            title = pick_title
+                            title_year = pick_year
+                        elif (re.search("^\d+$", pick) and int(pick) > 99999):
+                            # TODO: This may only be true for imdb.
+                            res = self.get_by_id(pick)
+                            title = res['title']
+                            title_year = res['year']
+                        elif (len(pick) > 5):
+                            pick_year = None
+                            pick_title = pick
+                            match = re.search(" \((\d\d\d\d)\)$", pick_title)
+                            if (match):
+                                pick_year = match.group(1)
+                                pick_title = re.sub(" \(\d\d\d\d\)$", "", pick_title)
+                            title = pick_title
+                            title_year = pick_year
 
         if (title is not None):
-            if (year is False): title = re.sub(" \(\d\d\d\d\)$", "", title)
-            return title
-
-        if (headless is False):
-            i = 0
-            items = {}
-            print(f"Searching for '{search_title}':")
-            for t in titles:
-                items[i] = t
-                i = i + 1
-                output = f"{i:-2d} {t} (match:{fuzz.ratio(t.lower(),search_title.lower())})"
-                print(output)
-            pick = input("Choose a title/enter id/enter a name manually: ").rstrip()
-            if (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
-                pick = int(pick) - 1
-                title = items[pick]
-                if (parsed_title not in self.cache): self.cache[parsed_title] = {}
-                self.cache[parsed_title]['title'] = title
-                self.cache[parsed_title]['year'] = titles[title]['year']
-                self.cache[parsed_title]['mod_date'] = datetime.now()
-                #if (year is True): title = f"{title} ({titles[title]['year']})"
-                if (year is False): title = re.sub(" \(\d\d\d\d\)$", "", title)
-                return title
-            elif (re.search("^\d+$", pick) and int(pick) > 99999):
-                res = self.get_by_id(pick)
-                if (parsed_title not in self.cache): self.cache[parsed_title] = {}
-                self.cache[parsed_title]['title'] = res['title']
-                self.cache[parsed_title]['year'] = res['year']
-                self.cache[parsed_title]['mod_date'] = datetime.now()
-                title = f"{res['title']}"
-                if (year is True): title = f"{title} ({res['year']})"
-                return title
-            elif (len(pick) > 5):
-                pick_year = None
-                pick_title = pick
-                match = re.search(" \((\d\d\d\d)\)$", pick_title)
-                if (match):
-                    pick_year = match.group(1)
-                    pick_title = re.sub(" \(\d\d\d\d\)$", "", pick_title)
-                if (parsed_title not in self.cache): self.cache[parsed_title] = {}
-                self.cache[parsed_title]['title'] = pick_title
-                self.cache[parsed_title]['year'] = pick_year
-                self.cache[parsed_title]['mod_date'] = datetime.now()
-                if (year is not False and pick_year is not None):
-                    return f'{pick_title} ({pick_year})'
-                return pick_title
+            if (name not in self.cache):
+                self.cache[name] = {}
+            self.cache[name]['title'] = title
+            self.cache[name]['year'] = title_year
+            self.cache[name]['mod_date'] = datetime.now()
+            self.match_log.write(f'"{self.name}","{name}","{title}", "{title_year}"\n')
+            if (year is True and title_year is not None): title = f"{title} ({title_year})"
         return title
 
     def istype(self, type):

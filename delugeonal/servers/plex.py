@@ -22,6 +22,8 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
         if (title not in self.cache): self.cache[title] = {}
 
         show = self._show(title)
+        if (show is None):
+            raise Exception(f"Can't find '{title}' in {self.name}")
 
         episodes = []
         for episode in show.episodes():
@@ -37,7 +39,6 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
             raise Exception("search string is empty.")
         if (search_string not in self.cache): self.cache[search_string] = {}
 
-
         show = None
         if (re.search(" \(\d\d\d\d\)$", search_string) is not None):
             test_search_string = re.sub(" \(\d\d\d\d\)$", "", search_string)
@@ -49,10 +50,15 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
 
         if (show is None):
             # Let this throw an exception if title is BS, we're all out of options.
-            show = self.plex.library.section('TV Shows').get(search_string)
-            return show
+            try:
+                show = self.plex.library.section('TV Shows').get(search_string)
+                return show
+            except NotFound as e:
+                raise e
 
     def show_name(self, search_string):
         show = self._show(search_string)
+        if (show is None):
+            raise Exception(f"Can't find '{search_string}' in {self.name}")
         return show.title
 

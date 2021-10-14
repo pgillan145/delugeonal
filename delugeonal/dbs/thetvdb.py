@@ -38,9 +38,12 @@ class MediaDb(delugeonal.mediadb.db):
             results = self.results_cache[parsed_title]
         else:
             search_title = parsed_title
-            results = self.tvdb.search(search_title)
-            # We can't use the global cache for this, because we can't pickle it.
-            self.results_cache[parsed_title] = results
+            try:
+                results = self.tvdb.search(search_title, type = 'series', limit = 10)
+                # We can't use the global cache for this, because we can't pickle it.
+                self.results_cache[parsed_title] = results
+            except ValueError as e:
+                pass
 
         titles = {}
         for result in results:
