@@ -152,7 +152,6 @@ def clear_cache(args = minorimpact.default_arg_flags):
     keys = list(cache.keys())
     [cache.pop(key) for key in keys]
     if (args.verbose): print(f" ... DONE")
-    dump_cache(args)
 
 def dump_cache(args = minorimpact.default_arg_flags):
     dump(cache)
@@ -345,9 +344,9 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     parsed_title = f"{parsed['title']} ({parsed['year']})" if "year" in parsed else parsed["title"]
 
     if ("season" in parsed):
-        tv_dir = None
-        title = None
         mediadb = None
+        title = None
+        tv_dir = None
 
         for media_dir in media_dirs:
             if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + parsed_title)):
@@ -356,7 +355,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                 break
 
         # This isn't just a copy of mediadb.get_title() -- I want to scan through the results of a search and see if any of them match the
-        #   directories we already have, which might save us from having to ask the user for a match. 
+        #   directories we already have, which might save us from having to ask the user for a match later. 
         if (title is None):
             titles = {}
             for db in mediadbs:
@@ -365,6 +364,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                     if (len(titles.keys()) > 0):
                         mediadb = db
                         break
+
             if (len(titles.keys()) > 0):
                 min_lev = 75
                 for t in titles:
@@ -376,11 +376,15 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                             if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
                                 if (args.debug): print(f"found {media_dir}/{config['default']['tv_dir']}/{title}")
                                 tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
-                    if (tv_dir is not None): break
+                    if (tv_dir is not None): 
+                        mediadb.match_log(os.path.basename(filename), parsed_title, titles[t]['title'], titles[t]['year'])
+                        break
 
         # We didn't find a close match in any of the existing directories, so let let mediadb do whatever it needs to do to find
         #   a match.
         if (title is None):
+            if mediadb is None:
+                raise Exception(f"Can't find a mediadb object.")
             title = mediadb.get_title(parsed_title, year=True, headless = args.yes)
             if (title is not None):
                 for media_dir in media_dirs:
@@ -441,17 +445,20 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                     if (args.verbose): print(f"deleting {dirname}")
                     if (args.dryrun == False): shutil.rmtree(dirname)
     else:
-        # TODO: This code is almost identical to the code in the tv section, I think a lot of it can be moved into a function.
         title = None
         movie_dir = None
         for media_dir in media_dirs:
             if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title)):
-                movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title
                 title = parsed_title
+                movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title
+                mediadb.match_log(filename, parsed_title, title, None)
 
         mediadb = None
         for db in mediadbs:
             if (db.istype('movie')): mediadb = db
+
+        if mediadb is None:
+            raise Exception(f"Can't find a mediadb object.")
         
         if (title is None):
             title = mediadb.get_title(parsed_title, year=True, headless = args.yes)

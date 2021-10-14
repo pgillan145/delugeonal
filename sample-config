@@ -3,40 +3,75 @@
 # Copy this file to /wherever/i/keep/config/files.conf, and set $DELUGEONAL_CONF.
 
 [default]
+
+# Files and directories
+# ---------------------
+# Store persistent data in this file
 cache_file = /tmp/delugeonal.cache
-# Only download files matching this codec
-codec = x265
 # The main directory from whence things come and go
 download_dir = /my/home/Downloads
+media_dirs = [ '/Volumes/Media', '/Volumes/Overflow' ]
+# The name of the media_dir subdirectory that contains Movies
+movie_dir = Movies
+# The name of the media_dir subdirectory that contains TV Shows
+tv_dir = TV Shows
 # Store the process id of the current running process in this file to prevent multiple instances from running simultanesously
 pidfile = /tmp/delugeonal.pid
+# Keep a record of what we started with vs. what we ended up with, for dev and troubleshooting purposes
+#match_debug_log = /tmp/delugeonal_match.log
+
+# Downloads
+# ---------
+# Only download files matching this codec
+codec = x265
 # Only download files matching this resolution
 resolution = 720p
 # When processing torrent file names need an addjustment before they can be used.
 transforms = { 'Robot Chicken (2005)':[ {'criteria':'season==11', 'action':'episode+1'}, ], 'American Dad! (2005)': [{'criteria':'season>11', 'action':'season+1'}]}
 
-# Python objects to use for access to various services.  
-torrentclientlib = .clients.deluge
-mediadblib = .dbs.imdb
+# Libraries
+# ---------
+# Python objects to use for access to various services. See FUTURE DOCUMENTATION for more information.
+mediadblibs = [ '.dbs.thetvdb', '.dbs.imdb' ]
 mediaserverlib = .servers.plex
-mediasitelib = .sites.ipt
+mediasitelibs = [ '.sites.eztv', '.sites.ipt' ]
+torrentclientlib = .clients.deluge
 
+# Torrent Client Maintenance settings
+# -----------------------------------
 [cleanup]
 # NOTE:  Torrents with a tracker listed in 'ratio' or 'seedtime' are considered "private."  Anything else is considered "public."
 # Minimum required torrent ratio for items from a given tracker.
 ratio = { "specific.tracker":2.0, "default":1.0 }
 # Minimum length of time to keep torrents from the specified trackers, in days.
 seedtime = { "specific.tracker":15, "default":1 }
-# In cases where space is needed, remove files that have met the time requirement but have ration below this value first.
+# In cases where space is needed, remove files that have met the time requirement but have ratios below this value first.
 min_keep_ratio = .01
 # If this value is True, cleanup won't happen for files that still live in the "default" directory they were added to when the download completed.
 wait_for_file_move = True
+
+# Media Servers
+[plex]
+url = http://127.0.0.1:32400
+# The login token requred to access the plex API.
+# See https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/
+token = XXXXXX
+
+# Media Sites
+[eztv]
+rss_url = https://eztv.re/ezrss.xml
+search_url = https://eztv.re/search/
+
+[tgx]
+rss_url = https://torrentgalaxy.to/rss
+search_url = https://torrentgalaxy.to/torrents.php?search=
 
 [ipt]
 # IPTorrents
 # URL to monitor for automatic RSS downloads
 rss_url = "https://iptorrents.com/t.rss?u=XXXXXX;tp=XXXXX;22;99;download;subscriptions"
 
+# Torrent Clients
 [deluge]
 # Deluge 1.3.15
 # Full path of the deluge-console script

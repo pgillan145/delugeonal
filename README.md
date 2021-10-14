@@ -2,11 +2,11 @@
 
 A set of scripts and libraries for controlling and organizing a torrent/media infrastructure.
 
-Current (barely) supported software:  
-- Media Servers: Plex
-- Media Databases: IMDb
-- Torrent Clients: Deluge 1.3.15
-- Media Sites: [IPTorrents](https://iptorrents.com)
+Current (barely) supported software/sites:
+- Media Servers: [Plex](https://www.plex.tv/media-server-downloads/#plex-media-server)
+- Media Databases: [IMDb](https://www.imdb.com/), [TheTVDB](https://www.thetvdb.com/)
+- Torrent Clients: [Deluge](https://deluge-torrent.org/) [1.3.15](https://launchpad.net/deluge/+milestone/1.3.15)
+- Media Sites: [IPTorrents](https://iptorrents.com), [TorrentGalaxy](https://torrentgalaxy.to/), [EZTV](https://eztv.re)
 
 ## Usage
 Add torrent files from a particular directory to your torrent client:

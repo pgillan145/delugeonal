@@ -16,16 +16,11 @@ class db(ABC):
         self.name = "media db"
         self.types = []
         atexit.register(self.cleanup)
-        self.match_log = None
-        if ('match_debug_log' in config['default'] and config['default']['match_debug_log']):
-            try:
-                self.match_log = open(config['default']['match_debug_log'], 'a')
-            except Exception as e:
-                if (args.verbose): print(f"{e}")
+        self.match_log_file = None
 
     def __del__(self):
-        if (self.match_log is not None):
-            self.match_log.close()
+        if (self.match_log_file is not None):
+            self.match_log_file.close()
 
     def cleanup(self):
         pass
@@ -123,7 +118,7 @@ class db(ABC):
             self.cache[name]['title'] = title
             self.cache[name]['year'] = title_year
             self.cache[name]['mod_date'] = datetime.now()
-            self.match_log.write(f'"{self.name}","{name}","{title}", "{title_year}"\n')
+            self.match_log(None, name,title, title_year)
             if (year is True and title_year is not None): title = f"{title} ({title_year})"
         return title
 
@@ -132,6 +127,33 @@ class db(ABC):
         if type is None:
             raise Exception(f"no type specified")
         return type in self.types
+
+    def match_log(self, filename, name, title, year):
+        """Writes data to 'match_debug_file', if defined in the config file.
+
+        No user servicable parts inside.  This is a debugging method meant to keep a laundry list of every attempted match so we can 
+        either debug existing code or confirm future changes still produce the same results.
+
+        Parameters
+        ---------
+        filename : str
+            The original file or source, if known.
+        name : str
+            The parsed name of the torrent.
+        title : str
+            The 'title' result of the match attempt.
+        year
+            The 'year' result of the match attempt
+        """
+        if (self.match_log_file is None and 'match_debug_log' in config['default'] and config['default']['match_debug_log']):
+            try:
+                self.match_log_file = open(config['default']['match_debug_log'], 'a')
+            except Exception as e:
+                if (args.verbose): print(f"Can't write match log: {e}")
+                return
+
+        if (self.match_log_file is not None):
+            self.match_log_file.write(f'"{self.name}","{filename}","{name}","{title}","{year}"\n')
 
     @abstractmethod
     def search_title(self, title):
