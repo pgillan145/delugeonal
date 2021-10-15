@@ -29,23 +29,27 @@ resolution = 720p
 # When torrent file names need an addjustment before they can be used, apply these transformations.  Multiple 
 #   tranformations can be defined per show.  All comma separated criteria must match before each comma separated
 #   action is applied.
-#   citeria:
+#   The key is the "official" name that comes back from the media database (i.e. IMDb or TheTVDB), including the year.
+#
+#   citeria options:
 #        'episode|season'==`value`
 #           perform the action if episode or season is equal to `value`  
 #        'episode|season'>`value`
 #           perform the action if episode or season is greater than `value`  
 #        'episode|season'<`value`
 #           perform the action if episode or season is less than `value`  
-#   actions: 
+#   available actions: 
 #       'episode|season'+`value`
 #           add `value` to the episode or season
 #       'episode|season'-`value`
 #           subtract `value` from the episode or season
-#       'episode|season'=`value`
-#           set the episode or season to `value`
-transforms = { 'Robot Chicken (2005)': [ {'criteria':'season==11', 'action':'episode+1' } ],
-               'American Dad! (2005)': [ {'criteria':'season>11', 'action':'season+1' } ],
-               'Rick and Morty (2013)': [ {'criteria':'season==5,episode==0', 'action':'season=0,episode=180' }]}
+#       'title|episode|season'=`value`
+#           set the title, season or episode to `value`
+transforms = { 'American Dad! (2005)': [ {'criteria':'season>11', 'action':'season+1' } ],
+               'Robot Chicken (2005)': [ {'criteria':'season==11', 'action':'episode+1' } ],
+               'Rick and Morty (2013)': [ {'criteria':'season==5,episode==0', 'action':'season=0,episode=180' } ],
+               'Scenes from a Marriage (US) (2021)': [ {'criteria':'season>0', 'action':'title=Scenes from a Marriage (2021)' } ]}
+
 
 
 # Libraries

@@ -77,7 +77,8 @@ class site(ABC):
 
             transformation = delugeonal.transform(title, item['season'], item['episode'])
             if (transformation is not None):
-                if (args.verbose): print(f" ... applying transformation: season {item['season']}=>{transformation['season']}, episode {item['episode']}=>{transformation['episode']}")
+                if (args.verbose): print(f" ... applying transformation: '{title}'=>'{transformation['title']}', season {item['season']}=>{transformation['season']}, episode {item['episode']}=>{transformation['episode']}")
+                title = transformation['title']
                 item['season'] = transformation['season']
                 item['episode'] = transformation['episode']
 
