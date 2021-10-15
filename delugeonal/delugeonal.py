@@ -20,13 +20,16 @@ def main():
     parser.add_argument('--cleanup',  help = "Remove completed torrents from the client.", action = 'store_true')
     parser.add_argument('--clear_cache',  help = "Empty the delugeonal cache.", action = 'store_true')
     parser.add_argument('--dump_cache',  help = "Dump the delugeonal cache to stdout.", action = 'store_true')
-    parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
     parser.add_argument('--fill', metavar = 'SHOW', help = "search media sites for missing episodes of SHOW", nargs=1)
     parser.add_argument('--move_download', metavar = ('NAME', 'TARGET_DIR'), help = "Move newly downloaded torrent NAME to TARGET_DIR", nargs=2)
     parser.add_argument('--move_media', help = "Move media files from the download directory to the appropriate media folders", action = 'store_true')
-    parser.add_argument('--dryrun', help = "Don't actually make any changes", action='store_true')
+    parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
+    parser.add_argument('--search', metavar = 'SEARCH',  help = "Search media sites for SEARCH.", nargs=1)
+    parser.add_argument('--codec', metavar = 'CODEC',  help = "Search for torrents encoded with CODEC", nargs=1)
+    parser.add_argument('--resolution', metavar = 'RES',  help = "Search for torrents with a resolution of RES", nargs=1)
+    parser.add_argument('-d', '--dryrun', help = "Don't actually make any changes", action='store_true')
     parser.add_argument('--debug', help = "extra extra loud output", action='store_true')
-    parser.add_argument('--force', help = "bypass built-in delays", action='store_true')
+    parser.add_argument('-f', '--force', help = "bypass built-in delays", action='store_true')
     parser.add_argument('-v', '--verbose', help = "extra loud output", action='store_true')
     parser.add_argument('-y', '--yes', help = "Always say yes.", action='store_true')
     args = parser.parse_args()
@@ -45,6 +48,8 @@ def main():
         move_media(args = args)
     if (args.rss):
         rss(args = args)
+    if (args.search is not None and len(args.search) == 1):
+        search(args.search[0], args = args)
     if (args.fill is not None and len(args.fill) == 1):
         fill(args.fill[0], args = args)
 
@@ -155,6 +160,11 @@ def clear_cache(args = minorimpact.default_arg_flags):
 
 def dump_cache(args = minorimpact.default_arg_flags):
     dump(cache)
+
+def fill(search_string, args = minorimpact.default_arg_flags):
+    if (args.debug): print(f"delugeonal.fill()")
+    for site in (mediasites):
+        site.fill(search_string, args)
 
 def filter_torrents(criteria):
     """Return a list of torrents from the client matching the values in criteria.
@@ -516,11 +526,12 @@ def rss(args = minorimpact.default_arg_flags):
     for site in (mediasites):
         site.rss(args)
 
-def fill(search_string, args = minorimpact.default_arg_flags):
-    if (args.debug): print(f"delugeonal.fill()")
+def search(search_string, args = minorimpact.default_arg_flags):
+    if (args.verbose): print(f"searching for '{search_string}'")
+    results = []
     for site in (mediasites):
-        site.fill(search_string, args)
-
+        site.search(search_string, args)
+    
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])
     
