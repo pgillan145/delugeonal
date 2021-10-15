@@ -6,7 +6,7 @@ import os.path
 import pickle
 import sys
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 config = minorimpact.config.getConfig(script_name='delugeonal')
 cache = {}
@@ -29,15 +29,12 @@ if (mediadblibs is not None and len(mediadblibs)>0):
     for mediadblib in (mediadblibs):
         db = importlib.import_module(mediadblib, __name__)
         mediadbs.append(db.MediaDb())
-else:
-    sys.exit("no media db libraries defined")
 
 mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
+server = None
 if (mediaserverlib is not None):
     mediaserver = importlib.import_module(mediaserverlib, __name__)
     server = mediaserver.MediaServer()
-else:
-    sys.exit("no media server library defined")
 
 mediasites = []
 mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
@@ -47,6 +44,7 @@ if (mediasitelibs is not None and len(mediasitelibs) > 0):
         mediasites.append(site.MediaSite())
 
 torrentclientlib = config['default']['torrentclientlib'] if 'torrentclientlib' in config['default'] and config['default']['torrentclientlib'] is not None else None
+client = None
 if (torrentclientlib is not None):
     torrentclient = importlib.import_module(torrentclientlib, __name__)
     client = torrentclient.TorrentClient()
