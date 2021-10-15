@@ -22,7 +22,7 @@ class MediaSite(delugeonal.mediasite.site):
                     The download url.
         """
         items = []
-        r = requests.get(self.url)
+        r = requests.get(self.rss_url)
         root = ET.fromstring(r.text)
 
         for item in root.findall('.//item'):
