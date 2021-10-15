@@ -255,7 +255,7 @@ def meta_info(parsed, fields, delim='.'):
     meta_info = re.sub(f'{delim}$', '', meta_info)
     return meta_info
 
-def move_download(name, target, verbose = False, dryrun = False):
+def move_download(name, target, args = minorimpact.default_arg_flags):
     if (args.verbose): print(f"moving {name} to {target}")
     if (args.dryrun is False):
         try:

@@ -6,7 +6,7 @@ import os.path
 import pickle
 import sys
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 config = minorimpact.config.getConfig(script_name='delugeonal')
 cache = {}
