@@ -526,22 +526,30 @@ def transform(title, season, episode):
     
     if title in transforms:
         for transform in transforms[title]:
-            criteria = None
-            action = None
-            match = re.search("^([a-z]+)([=<>]+)([0-9]+)$", transform['criteria'])
-            if (match):
-                criteria = {"field":match.group(1), "cmp":match.group(2), "value":match.group(3)}
-                #if (args.debug): print(f"criteria:{criteria}")
-            match = re.search("^([a-z]+)([+-])([0-9]+)$", transform['action'])
-            if (match):
-                action = {"field":match.group(1), "action":match.group(2), "value":match.group(3)}
-                #if (args.debug): print(f"action:{action}")
+            criteria = []
+            action = []
+            for c in transform['criteria'].split(','):
+                match = re.search("^([a-z]+)([=<>]+)([0-9]+)$", c)
+                if (match):
+                    criteria.append({"field":match.group(1), "cmp":match.group(2), "value":match.group(3)})
+                    #if (args.debug): print(f"criteria:{criteria}")
+
+            for a in transform['action'].split(','):
+                match = re.search("^([a-z]+)([+-=])([0-9]+)$", a)
+                if (match):
+                    action.append({"field":match.group(1), "action":match.group(2), "value":match.group(3)})
+                    #if (args.debug): print(f"action:{action}")
 
             if (criteria and action):
                 transformation = {'season': season, 'episode':episode}
-                if (eval(f"{criteria['field']}{criteria['cmp']}{criteria['value']}", {}, transformation)):
-                    s = f"{action['field']} = {action['field']} {action['action']} {action['value']}"
-                    exec(s, {}, transformation)
+                criteria_string = ''
+                for c in criteria:
+                    criteria_string = f'{criteria_string} and {c["field"]}{c["cmp"]}{c["value"]}'
+                criteria_string = re.sub('^ and ', '', criteria_string)
+                if (eval(criteria_string, {}, transformation)):
+                    for a in action:
+                        s = f"{a['field']} = {a['field']} {a['action']} {a['value']}"
+                        exec(s, {}, transformation)
 
                 return transformation
 

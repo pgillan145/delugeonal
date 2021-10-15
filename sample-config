@@ -23,11 +23,30 @@ pidfile = /tmp/delugeonal.pid
 # Downloads
 # ---------
 # Only download files matching this codec
-codec = x265
+codec = H.265
 # Only download files matching this resolution
 resolution = 720p
-# When processing torrent file names need an addjustment before they can be used.
-transforms = { 'Robot Chicken (2005)':[ {'criteria':'season==11', 'action':'episode+1'}, ], 'American Dad! (2005)': [{'criteria':'season>11', 'action':'season+1'}]}
+# When torrent file names need an addjustment before they can be used, apply these transformations.  Multiple 
+#   tranformations can be defined per show.  All comma separated criteria must match before each comma separated
+#   action is applied.
+#   citeria:
+#        'episode|season'==`value`
+#           perform the action if episode or season is equal to `value`  
+#        'episode|season'>`value`
+#           perform the action if episode or season is greater than `value`  
+#        'episode|season'<`value`
+#           perform the action if episode or season is less than `value`  
+#   actions: 
+#       'episode|season'+`value`
+#           add `value` to the episode or season
+#       'episode|season'-`value`
+#           subtract `value` from the episode or season
+#       'episode|season'=`value`
+#           set the episode or season to `value`
+transforms = { 'Robot Chicken (2005)': [ {'criteria':'season==11', 'action':'episode+1' } ],
+               'American Dad! (2005)': [ {'criteria':'season>11', 'action':'season+1' } ],
+               'Rick and Morty (2013)': [ {'criteria':'season==5,episode==0', 'action':'season=0,episode=180' }]}
+
 
 # Libraries
 # ---------
