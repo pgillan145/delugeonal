@@ -77,40 +77,41 @@ class db(ABC):
                             title_year = titles[t]['year']
                             max_lev = lev
 
-                    # Nothing was a great match, so if we're not in cron mode, ask a grown-up for help.
-                    if (title is None and headless is False):
-                        search_title = re.sub(' \(\d\d\d\d\)$', '', name)
-                        i = 0
-                        items = {}
-                        print(f"Searching for '{search_title}':")
-                        for t in titles:
-                            items[i] = t
-                            i = i + 1
-                            output = f"{i:-2d} {t} (match:{fuzz.ratio(t.lower(),search_title.lower())})"
-                            print(output)
-                        pick = input("Choose a title/enter id/enter a name manually: ").rstrip()
-                        if (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
-                            pick_title = items[int(pick) - 1]
-                            match = re.search(" \((\d\d\d\d)\)$", pick_title)
-                            if (match):
-                                pick_year = match.group(1)
-                                pick_title = re.sub(' \(\d\d\d\d\)$', '', pick_title)
-                            title = pick_title
-                            title_year = pick_year
-                        elif (re.search("^\d+$", pick) and int(pick) > 99999):
-                            # TODO: This may only be true for imdb.
-                            res = self.get_by_id(pick)
-                            title = res['title']
-                            title_year = res['year']
-                        elif (len(pick) > 5):
-                            pick_year = None
-                            pick_title = pick
-                            match = re.search(" \((\d\d\d\d)\)$", pick_title)
-                            if (match):
-                                pick_year = match.group(1)
-                                pick_title = re.sub(" \(\d\d\d\d\)$", "", pick_title)
-                            title = pick_title
-                            title_year = pick_year
+            # Nothing's worked so far, and we're not in cron mode, so ask a grown-up for help.
+            if (title is None and headless is False):
+                search_title = re.sub(' \(\d\d\d\d\)$', '', name)
+                i = 0
+                items = {}
+                print(f"Searching for '{search_title}':")
+                for t in titles:
+                    items[i] = t
+                    i = i + 1
+                    output = f"{i:-2d} {t} (match:{fuzz.ratio(t.lower(),search_title.lower())})"
+                    print(output)
+                pick = input("Choose a title/enter id/enter a name manually: ").rstrip()
+                if (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
+                    pick_title = items[int(pick) - 1]
+                    match = re.search(" \((\d\d\d\d)\)$", pick_title)
+                    if (match):
+                        pick_year = match.group(1)
+                        pick_title = re.sub(' \(\d\d\d\d\)$', '', pick_title)
+                    title = pick_title
+                    title_year = pick_year
+                elif (re.search("^\d+$", pick) and int(pick) > 99999):
+                    # TODO: This may only be true for imdb.
+                    res = self.get_by_id(pick)
+                    title = res['title']
+                    title_year = res['year']
+                elif (len(pick) > 5):
+                    pick_year = None
+                    pick_title = pick
+                    match = re.search(" \((\d\d\d\d)\)$", pick_title)
+                    if (match):
+                        pick_year = match.group(1)
+                        pick_title = re.sub(" \(\d\d\d\d\)$", "", pick_title)
+                    title = pick_title
+                    title_year = pick_year
+
 
         if (title is not None):
             if (name not in self.cache):

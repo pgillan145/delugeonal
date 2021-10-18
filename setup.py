@@ -9,6 +9,15 @@ with open('./README.md', encoding='utf-8') as f:
 setup(
     author='Patrick Gillan',
     author_email = 'pgillan@minorimpact.com',
+    classifiers = [
+        "Development Status :: 2 - Pre-Alpha",
+        "Environment :: Console",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Natural Language :: English",
+        "Operating System :: POSIX",
+        "Programming Language :: Python :: 3",
+        "Topic :: Utilities",
+        ],
     description="Automate and control multiple aspects of a torrent/media infrastructure.",
     entry_points = { "console_scripts": [ "delugeonal = delugeonal:main" ] },
     install_requires=['fuzzywuzzy', 'IMDbPy', 'minorimpact', 'parse-torrent-title', 'pyyaml', 'torrentool', 'tvdb_v4_official'],

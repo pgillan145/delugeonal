@@ -1,9 +1,10 @@
 import argparse
-from . import mediadbs, cache, client, config, mediasites
+from . import mediadbs, cache, client, config, server, mediasites
 from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
 import minorimpact
+from operator import itemgetter
 import os
 import os.path
 import PTN
@@ -162,9 +163,94 @@ def dump_cache(args = minorimpact.default_arg_flags):
     dump(cache)
 
 def fill(search_string, args = minorimpact.default_arg_flags):
+    """Find all missing episodes for `search_string`.
+
+    Parameters
+    ----------
+    str
+        The name of the show for which to find missing episodes.
+    """
     if (args.debug): print(f"delugeonal.fill()")
-    for site in (mediasites):
-        site.fill(search_string, args)
+    show = server.show_name(search_string)
+    if (show is None):
+        raise Exception (f"Can't get show for '{search_string}'")
+
+    if (args.debug): print(f"'{search_string}' => '{show}'")
+    episodes = server.episodes(show)
+    total_episodes = None
+    mediadb = None
+    for db in mediadbs:
+        if (db.istype('tv')):
+            total_episodes = db.total_episodes(show)
+            mediadb = db
+            break
+
+    if (mediadb is None or total_episodes is None):
+        raise Exception(f"Can't get season/episode count")
+
+    missing = []
+    last_season = 0
+    last_episode = 0
+    # Sort all of the episodes by episode, then by 
+    #for episode in sorted(sorted(episodes, key=lambda x: x['episode']), key=lambda x: x['season']):
+    for episode in sorted(episodes, key=itemgetter('season', 'episode')):
+        # These are specials, I have no personal interest in collecting all of these -- though it might be
+        #   a nice option in the future.
+        if (episode['season'] == 0): continue
+
+        # Seasons change
+        if (episode['season'] == last_season + 1):
+            # We've gone from one season to the next.
+            if (last_season > 0 and last_episode < total_episodes[last_season]):
+                while (last_episode < total_episodes[last_season]):
+                    last_episode += 1
+                    missing.append({'season':last_season, 'episode':last_episode})
+            last_episode = 0
+        elif (episode['season'] > last_season + 1):
+            # We've apparently skipped an entire season
+            while (episode['season'] > last_season+1):
+                last_season += 1
+                for i in range(1, total_episodes[last_season] + 1):
+                    missing.append({'season':last_season, 'episode':i})
+
+        # Having an episode
+        if (episode['episode'] > last_episode+1):
+            while (episode['episode'] > last_episode+1):
+                last_episode += 1
+                missing.append({'season':episode['season'], 'episode':last_episode})
+        last_episode = episode['episode']
+        last_season = episode['season']
+
+    # Last call
+    if (last_season < len(total_episodes) or (last_season == len(total_episodes) and last_episode < total_episodes[last_season])):
+        # There are seasons and/or episodes beyond what we've got
+        while (last_season <= len(total_episodes)):
+            while(last_episode < total_episodes[last_season]):
+                last_episode += 1
+                missing.append({'season':last_season, 'episode':last_episode})
+            last_episode = 0
+            last_season += 1
+
+    if (len(missing) == 0):
+        print(f"No missing episodes found for {show}")
+        return
+
+    print(f"Found {len(missing)} missing episode(s) for {show}")
+    for m in missing:
+        season = str(m['season'])
+        episode = str(m['episode'])
+        season = '0' + season if int(season) < 10 else season
+        episode = '0' + episode if int(episode) < 10 else episode
+
+        search_string = re.sub(' \(\d\d\d\d\)$', '', show)
+        search_string = f'{search_string} S{season}E{episode}'
+        if (args.verbose): print(f"searching for '{search_string}'")
+        for site in (mediasites):
+            results = site.search(search_string, download = False, args = args)
+            if (results is not None and len(results) > 0):
+                #if (args.verbose): print(f"found {len(results)} result(s) from {site.name}")
+                if (site.download(results, args = args) > 0):
+                    break
 
 def filter_torrents(criteria):
     """Return a list of torrents from the client matching the values in criteria.
@@ -183,7 +269,6 @@ def filter_torrents(criteria):
     -------
     list
         A list of torrent titles that fit criteria.
-        
     """
     client_config = client.get_config()
     download_location = client_config['download_location']
@@ -346,14 +431,14 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
     if (extension not in video_formats): return
     parsed = PTN.parse(basename + "." + extension)
-    if ("codec" in parsed and parsed['codec'] == "H.265"): parsed['codec'] = "HEVC.x265"
-    if ("codec" in parsed and parsed['codec'] == "H.264"): parsed['codec'] = "x264"
+    if ('codec' in parsed and parsed['codec'] == 'H.265'): parsed['codec'] = 'HEVC.x265'
+    if ('codec' in parsed and parsed['codec'] == 'H.264'): parsed['codec'] = 'x264'
+    if ('resolution' not in parsed):  parsed['resolution'] = '480p'
 
     if (args.debug): print(f"{basename}:{parsed}")
-    # TODO: Dedup all this code to find a name in the tv and movie sections.
-    parsed_title = f"{parsed['title']} ({parsed['year']})" if "year" in parsed else parsed["title"]
+    parsed_title = f'{parsed["title"]} ({parsed["year"]})' if 'year' in parsed else parsed['title']
 
-    if ("season" in parsed):
+    if ('season' in parsed):
         mediadb = None
         title = None
         tv_dir = None
@@ -457,12 +542,6 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     else:
         title = None
         movie_dir = None
-        for media_dir in media_dirs:
-            if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title)):
-                title = parsed_title
-                movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title
-                mediadb.match_log(filename, parsed_title, title, None)
-
         mediadb = None
         for db in mediadbs:
             if (db.istype('movie')): mediadb = db
@@ -470,6 +549,12 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
         if mediadb is None:
             raise Exception(f"Can't find a mediadb object.")
         
+        for media_dir in media_dirs:
+            if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title)):
+                title = parsed_title
+                movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title
+                mediadb.match_log(filename, parsed_title, title, None)
+
         if (title is None):
             title = mediadb.get_title(parsed_title, year=True, headless = args.yes)
             if (args.debug):print(f"got {title} from {parsed_title}")
@@ -479,8 +564,9 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                         movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + title
 
         if (title is None):
-            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=3, Summary=f"Can't find a title for {filename}")
+            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='yellow', Summary=f"Can't find a title for {filename}")
             return
+        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='green', Summary=f"Found '{title}' for {filename}")
 
         if (movie_dir is None):
             movie_dir = media_dirs[0] + '/' + config['default']['movie_dir'] + '/' + title
@@ -530,7 +616,7 @@ def search(search_string, args = minorimpact.default_arg_flags):
     if (args.verbose): print(f"searching for '{search_string}'")
     results = []
     for site in (mediasites):
-        site.search(search_string, args)
+        site.search(search_string, args = args)
     
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])

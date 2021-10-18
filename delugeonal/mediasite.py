@@ -4,10 +4,8 @@ from datetime import datetime,timedelta
 import delugeonal
 from . import mediadbs, cache, config, server
 from dumper import dump
-from fuzzywuzzy import fuzz
 import minorimpact
 import os.path
-import pickle
 import PTN
 import re
 import requests
@@ -26,11 +24,13 @@ class site(ABC):
             cache['site'] = {}
         self.cache = cache['site']
         if (self.site_key is None):
-            raise Exception(f"site_key is not defined")
+            raise Exception(f"site key is not defined")
         if (self.site_key) not in delugeonal.config:
-            raise Exception(f"{self.site_key} is not in the config file")
-        self.rss_url = delugeonal.config[self.site_key]['rss_url'] if ('rss_url' in delugeonal.config[self.site_key]) else None
-        self.search_url = delugeonal.config[self.site_key]['search_url'] if ('search_url' in delugeonal.config[self.site_key]) else None
+            raise Exception(f"no [{self.site_key}] section in config file")
+        self.config = delugeonal.config[self.site_key]
+
+        self.rss_url = self.config['rss_url'] if ('rss_url' in self.config) else None
+        self.search_url = self.config['search_url'] if ('search_url' in self.config) else None
 
     def cleanup(self):
         pass
@@ -51,6 +51,8 @@ class site(ABC):
         if (downloads is None):
             raise Exception(f"downloads is not defined")
 
+        download_log = []
+        download_count = 0
         for name, url in downloads:
             parsed = PTN.parse(name)
                 
@@ -114,6 +116,10 @@ class site(ABC):
                 continue
 
             episode_key = f"{title}|S{item['season']}E{item['episode']}"
+            if (episode_key in download_log):
+                # Yes, download_log *is* redundant (and a shitty hack), but in the case of --dryrun I don't want to add the download to the permanent cache, 
+                # but I *also* don't want to ask the user to download multiple copies of the same torrent.
+                continue
             if ('downloads' not in self.cache): self.cache['downloads'] = {}
             if (episode_key not in self.cache['downloads']):
                 self.cache['downloads'][episode_key] = { 'item':item }
@@ -135,54 +141,10 @@ class site(ABC):
                        for chunk in r.iter_content(chunk_size=128):
                           f.write(chunk)
                     self.cache['downloads'][episode_key]['date'] = datetime.now()
+                download_log.append(episode_key)
+                download_count += 1
+        return download_count
         
-    def fill(self, search_string, args=minorimpact.default_arg_flags):
-        show = server.show_name(search_string)
-        if (show is None):
-            raise Exception (f"Can't get show for '{search_string}'")
-        if (args.debug): print(f"'{search_string}' => '{show}'")
-        episodes = server.episodes(show)
-        total_episodes = None
-        for db in mediadbs:
-            if (db.istype('tv')):
-                total_episodes = db.total_episodes(show)
-                break
-        if (total_episodes is None):
-            raise Exception(f"Can't get season/episode count for '{show}' from {db.name}")
-        print(total_episodes)
-        missing = []
-        last_season = 0
-        last_episode = 0
-        for episode in sorted(sorted(episodes, key=lambda x: x['episode']), key=lambda x: x['season']):
-            if (episode['season'] == 0): continue
-            #print(episode)
-            if (episode['season'] > last_season + 1):
-                while (episode['season'] > last_season+1):
-                    missing.append({'season':last_season+1, 'episode':'*'})
-                    last_season += 1
-                last_episode = 0
-                last_season = episode['season']
-            elif (episode['season'] == last_season + 1):
-                if (last_season > 0 and last_episode < total_episodes[last_season]):
-                    while (last_episode < total_episodes[last_season]):
-                        missing.append({'season':last_season, 'episode':last_episode+1})
-                        last_episode += 1
-                last_episode = 0
-                last_season = episode['season']
-            if (episode['episode'] > last_episode+1):
-                while (episode['episode'] > last_episode+1):
-                    missing.append({'season':episode['season'], 'episode':last_episode+1})
-                    last_episode += 1
-            last_episode = episode['episode']
-        for m in missing:
-            print(m)
-        return
-        items = self.search(search_string)
-        for item in items:
-            name = item[0]
-            url = item[1]
-            if args.debug: print(f"{name}, {url}")
-
     def rss(self, args = minorimpact.default_arg_flags):
         if (args.debug): print("site.rss()")
         if (self.rss_url is None):
@@ -205,9 +167,12 @@ class site(ABC):
         """
         pass
 
-    def search(self, search_string, args = minorimpact.default_arg_flags):
+    def search(self, search_string, download = True, args = minorimpact.default_arg_flags):
         results = self.search_site(search_string)
-        self.download(results, args = args)
+        if (download is True):
+            self.download(results, args = args)
+        else:
+            return results
 
     @abstractmethod
     def search_site(self, search_string):

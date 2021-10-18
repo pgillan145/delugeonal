@@ -18,11 +18,13 @@ class MediaSite(delugeonal.mediasite.site):
 
         for item in root.findall('.//item'):
             name = item.find('title').text
-            link_url = item.find('enclosure').attrib['url']
-            if (name is None or name == '' or link_url is None or link_url == ''):
-                continue
+            enclosure = item.find('enclosure')
+            if (enclosure is not None):
+                link_url = enclosure.attrib['url']
+                if (name is None or name == '' or link_url is None or link_url == ''):
+                    continue
 
-            items.append((name, link_url))
+                items.append((name, link_url))
         return items
 
     def search_site(self, search_string):
