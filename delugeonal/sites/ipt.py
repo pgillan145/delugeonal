@@ -20,7 +20,6 @@ class MediaSite(delugeonal.mediasite.site):
             link_url = item.find('link').text
             if (name is None or name == '' or link_url is None or link_url == ''):
                 continue
-            if (args.verbose): print(f" ... found '{name}'")
             items.append((name, link_url))
         return items
 
