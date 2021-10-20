@@ -610,7 +610,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 def rss(args = minorimpact.default_arg_flags):
     if (args.debug): print(f"delugeonal.rss()")
     for site in (mediasites):
-        site.rss(args)
+        site.rss(args = args)
 
 def search(search_string, args = minorimpact.default_arg_flags):
     if (args.verbose): print(f"searching for '{search_string}'")
