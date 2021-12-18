@@ -18,9 +18,9 @@ from torrentool.api import Torrent
 def main():
     parser = argparse.ArgumentParser(description="delugeonal")
     parser.add_argument('--add', metavar = 'DIR',  help = "Scan DIR for torrent files, and add them to the client.", nargs=1)
-    parser.add_argument('--cleanup',  help = "Remove completed torrents from the client.", action = 'store_true')
-    parser.add_argument('--clear_cache',  help = "Empty the delugeonal cache.", action = 'store_true')
-    parser.add_argument('--dump_cache',  help = "Dump the delugeonal cache to stdout.", action = 'store_true')
+    parser.add_argument('--cleanup', help = "Remove completed torrents from the client.", action = 'store_true')
+    parser.add_argument('--clear_cache', help = "Empty the delugeonal cache.", action = 'store_true')
+    parser.add_argument('--dump_cache', help = "Dump the delugeonal cache to stdout.", action = 'store_true')
     parser.add_argument('--fill', metavar = 'SHOW', help = "search media sites for missing episodes of SHOW", nargs=1)
     parser.add_argument('--move_download', metavar = ('NAME', 'TARGET_DIR'), help = "Move newly downloaded torrent NAME to TARGET_DIR", nargs=2)
     parser.add_argument('--move_media', help = "Move media files from the download directory to the appropriate media folders", action = 'store_true')
@@ -498,14 +498,14 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
         new_basename = basename
         transformation = transform(title, parsed['season'], parsed['episode'])
         if (transformation is not None):
-                season = transformation['season']
-                episode = transformation['episode']
-                if (int(episode) < 10): episode = '0' + str(int(episode))
-                new_basename = f"{title}.S{season}E{episode}"
-                meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
-                if (len(meta) > 0):
-                    new_basename = new_basename + '.' + meta
-                if (args.debug): print(f"{new_basename}")
+            season = transformation['season']
+            episode = transformation['episode']
+            if (int(episode) < 10): episode = '0' + str(int(episode))
+            new_basename = f"{title}.S{season}E{episode}"
+            meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
+            if (len(meta) > 0):
+                new_basename = new_basename + '.' + meta
+            if (args.debug): print(f"{new_basename}")
 
         if (os.path.exists(tv_dir + "/" + new_basename + "." + extension) and args.yes):
             uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=3, Summary=f"{tv_dir}/{new_basename}.{extension} already exists.")
