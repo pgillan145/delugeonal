@@ -365,7 +365,7 @@ def move_media(args = minorimpact.default_arg_flags):
     download_dir = args.move_media
     files = {}
     churn = 1
-    while churn:
+    while churn > 0:
         churn = 0
         for f in os.listdir(download_dir):
             if (re.match('\.', f)): continue
@@ -387,8 +387,6 @@ def move_media(args = minorimpact.default_arg_flags):
         delete = [key for key in files if files[key]['state'] == 'done']
         for f in delete:
             del files[f]
-        if (churn > 10):
-            return
         time.sleep(1)
     return
 
@@ -541,6 +539,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                 if (c == 'y'):
                     if (args.verbose): print(f"deleting {dirname}")
                     if (args.dryrun == False): shutil.rmtree(dirname)
+        elif (c == 'q'):
+            sys.exit()
     else:
         title = None
         movie_dir = None
