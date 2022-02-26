@@ -6,7 +6,7 @@ import os.path
 import pickle
 import sys
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 
 config = minorimpact.config.getConfig(script_name='delugeonal')
 cache = {}
@@ -28,7 +28,10 @@ mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config[
 if (mediadblibs is not None and len(mediadblibs)>0):
     for mediadblib in (mediadblibs):
         db = importlib.import_module(mediadblib, __name__)
-        mediadbs.append(db.MediaDb())
+        try:
+            mediadbs.append(db.MediaDb())
+        except Exception as e:
+            print(e)
 
 mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
 server = None

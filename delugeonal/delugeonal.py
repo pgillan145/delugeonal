@@ -8,6 +8,7 @@ from operator import itemgetter
 import os
 import os.path
 import PTN
+import rarfile
 import re
 import shutil
 import sys
@@ -23,7 +24,7 @@ def main():
     parser.add_argument('--dump_cache', help = "Dump the delugeonal cache to stdout.", action = 'store_true')
     parser.add_argument('--fill', metavar = 'SHOW', help = "search media sites for missing episodes of SHOW", nargs=1)
     parser.add_argument('--move_download', metavar = ('NAME', 'TARGET_DIR'), help = "Move newly downloaded torrent NAME to TARGET_DIR", nargs=2)
-    parser.add_argument('--move_media', help = "Move media files from the download directory to the appropriate media folders", action = 'store_true')
+    parser.add_argument('--move_media', metavar = 'DIR', help = "Move media files from the download directory (or DIR, if specified) to the appropriate media folders", nargs='?', const=config['default']['download_dir'] )
     parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
     parser.add_argument('--search', metavar = 'SEARCH',  help = "Search media sites for SEARCH.", nargs=1)
     parser.add_argument('--codec', metavar = 'CODEC',  help = "Search for torrents encoded with CODEC", nargs=1)
@@ -45,7 +46,7 @@ def main():
         dump_cache(args = args)
     if (args.move_download is not None and len(args.move_download) == 2):
         move_download(args.move_download[0], args.move_download[1], args = args)
-    if (args.move_media):
+    if (args.move_media is not None):
         move_media(args = args)
     if (args.rss):
         rss(args = args)
@@ -360,7 +361,8 @@ def move_download(name, target, args = minorimpact.default_arg_flags):
     return
 
 def move_media(args = minorimpact.default_arg_flags):
-    download_dir = config['default']['download_dir']
+    #download_dir =  config['default']['download_dir']
+    download_dir = args.move_media
     files = {}
     churn = 1
     while churn:
@@ -610,7 +612,10 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 def rss(args = minorimpact.default_arg_flags):
     if (args.debug): print(f"delugeonal.rss()")
     for site in (mediasites):
-        site.rss(args = args)
+        try:
+            site.rss(args = args)
+        except Exception as e:
+            print(e)
 
 def search(search_string, args = minorimpact.default_arg_flags):
     if (args.verbose): print(f"searching for '{search_string}'")

@@ -4,6 +4,7 @@ log/*
 test/*
 dist/*
 *.egg-info
+*.log
 *.pyc
 __pycache__
 .*.swp
