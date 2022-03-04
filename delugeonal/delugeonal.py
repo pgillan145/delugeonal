@@ -18,22 +18,23 @@ from torrentool.api import Torrent
 
 def main():
     parser = argparse.ArgumentParser(description="delugeonal")
+    parser.add_argument('-f', '--force', help = "bypass built-in delays", action='store_true')
+    parser.add_argument('-v', '--verbose', help = "extra loud output", action='store_true')
+    parser.add_argument('-y', '--yes', help = "Always say yes.", action='store_true')
+    parser.add_argument('-d', '--dryrun', help = "Don't actually make any changes", action='store_true')
+    parser.add_argument('--debug', help = "extra extra loud output", action='store_true')
     parser.add_argument('--add', metavar = 'DIR',  help = "Scan DIR for torrent files, and add them to the client.", nargs=1)
     parser.add_argument('--cleanup', help = "Remove completed torrents from the client.", action = 'store_true')
     parser.add_argument('--clear_cache', help = "Empty the delugeonal cache.", action = 'store_true')
+    parser.add_argument('--codec', metavar = 'CODEC',  help = "Search for torrents encoded with CODEC", nargs=1)
     parser.add_argument('--dump_cache', help = "Dump the delugeonal cache to stdout.", action = 'store_true')
     parser.add_argument('--fill', metavar = 'SHOW', help = "search media sites for missing episodes of SHOW", nargs=1)
     parser.add_argument('--move_download', metavar = ('NAME', 'TARGET_DIR'), help = "Move newly downloaded torrent NAME to TARGET_DIR", nargs=2)
     parser.add_argument('--move_media', metavar = 'DIR', help = "Move media files from the download directory (or DIR, if specified) to the appropriate media folders", nargs='?', const=config['default']['download_dir'] )
     parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
     parser.add_argument('--search', metavar = 'SEARCH',  help = "Search media sites for SEARCH.", nargs=1)
-    parser.add_argument('--codec', metavar = 'CODEC',  help = "Search for torrents encoded with CODEC", nargs=1)
+    parser.add_argument('--torrents', help = "List active torrents.", action = 'store_true')
     parser.add_argument('--resolution', metavar = 'RES',  help = "Search for torrents with a resolution of RES", nargs=1)
-    parser.add_argument('-d', '--dryrun', help = "Don't actually make any changes", action='store_true')
-    parser.add_argument('--debug', help = "extra extra loud output", action='store_true')
-    parser.add_argument('-f', '--force', help = "bypass built-in delays", action='store_true')
-    parser.add_argument('-v', '--verbose', help = "extra loud output", action='store_true')
-    parser.add_argument('-y', '--yes', help = "Always say yes.", action='store_true')
     args = parser.parse_args()
     if (args.dryrun): args.verbose = True
     if (args.add is not None and len(args.add) == 1):
@@ -44,6 +45,8 @@ def main():
         clear_cache(args = args)
     if (args.dump_cache):
         dump_cache(args = args)
+    if (args.fill is not None and len(args.fill) == 1):
+        fill(args.fill[0], args = args)
     if (args.move_download is not None and len(args.move_download) == 2):
         move_download(args.move_download[0], args.move_download[1], args = args)
     if (args.move_media is not None):
@@ -52,8 +55,8 @@ def main():
         rss(args = args)
     if (args.search is not None and len(args.search) == 1):
         search(args.search[0], args = args)
-    if (args.fill is not None and len(args.fill) == 1):
-        fill(args.fill[0], args = args)
+    if (args.torrents is not None and args.torrents is True):
+	torrents(args = args)
 
 def add(directory, args = minorimpact.default_arg_flags):
     if (os.path.exists(directory) is False):
@@ -622,6 +625,10 @@ def search(search_string, args = minorimpact.default_arg_flags):
     results = []
     for site in (mediasites):
         site.search(search_string, args = args)
+
+def torrents(args = minorimpact.default_arg_flags):
+    info = client.get_info(verbose = args.verbose)
+    if (args.verbose): print(info)
     
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])
