@@ -56,7 +56,7 @@ def main():
     if (args.search is not None and len(args.search) == 1):
         search(args.search[0], args = args)
     if (args.torrents is not None and args.torrents is True):
-	torrents(args = args)
+        torrents(args = args)
 
 def add(directory, args = minorimpact.default_arg_flags):
     if (os.path.exists(directory) is False):
@@ -94,7 +94,7 @@ def add(directory, args = minorimpact.default_arg_flags):
         if (args.dryrun is False):
             add_torrent = client.add_torrent(data)
             if (args.verbose): print(f"{add_torrent}")
-            if (re.search("Torrent added!", add_torrent)):
+            if (re.search('responded: "success"', add_torrent)):
                 if (args.verbose): print(f"deleting {f}")
                 os.remove(directory + '/' + f)
 
@@ -628,7 +628,9 @@ def search(search_string, args = minorimpact.default_arg_flags):
 
 def torrents(args = minorimpact.default_arg_flags):
     info = client.get_info(verbose = args.verbose)
-    if (args.verbose): print(info)
+    for f in info:
+        print(f"{f}: ratio:{info[f]['ratio']}, size:{info[f]['size']}, seedtime:{info[f]['seedtime']}")
+
     
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])
