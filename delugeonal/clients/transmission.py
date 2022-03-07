@@ -42,7 +42,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         pass
 
     def get_config(self):
-        with open('/etc/transmission-remote/settings.json', 'r') as f:
+        with open('/etc/transmission-daemon/settings.json', 'r') as f:
             config = json.load(f)
         return config
 
@@ -81,6 +81,10 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 #    print(s.groups()[0])
                 #    info[f]["id"] = s.groups()[0]
 
+                s = re.search('^  Location: (.+)$', l)
+                if (s):
+                    info[f]["data_file"] = f'{s.groups()[0]}/{f}'
+
                 s = re.search("^  Ratio: ([\d\.]+)", l)
                 if (s):
                     info[f]["ratio"] = float(s.groups()[0])
@@ -105,14 +109,63 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                         size = int(float(s.groups()[0]))
                     info[f]["size"] = size
 
-            tracker_str = self._do_command([f'-t{id}','-it'])
-            for lt in tracker_str.split('\n'):
-                if (len(lt) == 0): continue
-                s = re.search('^  Tracker 0: https://([^:]+)', lt)
-                if (s):
-                    info[f]['tracker'] = s.groups()[0]
-                    break
-                #    info[f]["trackerstatus"] = s.groups()[1]
+            if (id and f):
+                tracker_str = self._do_command([f'-t{id}','-it'])
+                tracker = None
+                trackers = []
+                #  Tracker 2: udp://tracker.leechers-paradise.org:6969
+                #  Active in tier 2
+                #  Got an error "Connection failed" 21 minutes (1289 seconds) ago
+                #  Asking for more peers in 38 minutes (2312 seconds)
+                #  Got a scrape error "Connection failed" 12 minutes (734 seconds) ago
+                #  Asking for peer counts in 1 hour, 48 minutes (6525 seconds)
+
+                #  Tracker 3: udp://tracker.pomf.se:80
+                #  Active in tier 3
+                #  Got a list of 4 peers 22 minutes (1352 seconds) ago
+                #  Asking for more peers in 7 minutes (473 seconds)
+                #  Tracker had 2 seeders and 2 leechers 22 minutes (1352 seconds) ago
+                #  Asking for peer counts in 7 minutes (455 seconds)
+
+                line = 0
+                for lt in tracker_str.split('\n'):
+                    line = line + 1
+                    if (len(lt) == 0): 
+                        if (tracker is not None):
+                            if ('status' not in tracker):
+                                tracker['status'] = 'unknown'
+                            trackers.append(tracker)
+                        tracker = {}
+                        line = 1
+                        continue
+                    s = re.search('^  Tracker \d+: (?P<protocol>https?|udp)://(?P<name>[^:]+):(?P<port>\d+)', lt)
+                    if (s):
+                        g = s.groupdict()
+                        #tracker['name'] = g['names']
+                        names = g['name'].split('.')
+                        names = names[::-1]
+                        tracker['name'] = f'{names[1]}.{names[0]}'
+                        tracker['port'] = g['port']
+                        tracker['protocol'] = g['protocol']
+
+                        #info[f]['tracker'] = s.groups()[0]
+                        #break
+                        #info[f]["trackerstatus"] = s.groups()[1]
+                    #s = re.search('^  (\S+) in tier \d', lt)
+                    if (s):
+                        s = re.search('^  Got a list of \d+ ', lt)
+                        tracker['status'] = 'ok'
+                    else:
+                        s = re.search('^  Got an error ', lt)
+                        if (s):
+                            tracker['status'] = 'error'
+                    if (line == 4):
+                        tracker['statusline'] = lt
+                info[f]['trackers'] = trackers
+                for t in trackers:
+                    info[f]['tracker'] = t['name']
+                    info[f]['trackerstatus'] = t['status']
+                    if t['status'] == 'ok': break
 
         if (len(info.keys()) == 0):
             exception = "no torrent info"

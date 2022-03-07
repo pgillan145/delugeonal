@@ -100,7 +100,11 @@ def add(directory, args = minorimpact.default_arg_flags):
 
 def cleanup(args = minorimpact.default_arg_flags):
     client_config = client.get_config()
-    download_dir = client_config['download_location']
+    if 'download_location' in client_config: 
+        download_dir = client_config['download_location']
+    elif 'download-dir' in client_config:
+        download_dir = client_config['download-dir']
+
     total, used, free = shutil.disk_usage('/')
     target_free = total * .05
     if (args.verbose): print(f"free space:{minorimpact.disksize(free, units='b')}/{minorimpact.disksize(target_free, units='b')}")
@@ -275,9 +279,15 @@ def filter_torrents(criteria):
         A list of torrent titles that fit criteria.
     """
     client_config = client.get_config()
-    download_location = client_config['download_location']
-    if client_config['move_completed']:
+    if 'download_location' in client_config: 
+        download_location = client_config['download_location']
+    elif 'download-dir' in client_config:
+        download_location = client_config['download-dir']
+
+    if 'move_completed' in client_config and client_config['move_completed']:
         download_location = client_config['move_completed_path']
+    #elif 'incomplete-dir-enabled' in client_config and client_config['incomplete-dir-enabled'] == 'true':
+    #    download_location = client_config['incomplete-dir']
 
     cleanup_ratio = eval(config['cleanup']['ratio'])
     cleanup_seedtime = eval(config['cleanup']['seedtime'])
@@ -299,7 +309,7 @@ def filter_torrents(criteria):
         seedtime = info[f]['seedtime']
         if type == 'notracker':
             trackerstatus = info[f]['trackerstatus']
-            if tracker is None or trackerstatus == "Error: unregistered torrent":
+            if tracker is None or trackerstatus == "Error: unregistered torrent" or trackerstatus == 'error':
                 delete.append(f)
         elif type == 'private_low_ratio':
             if tracker not in cleanup_seedtime: continue
@@ -629,7 +639,8 @@ def search(search_string, args = minorimpact.default_arg_flags):
 def torrents(args = minorimpact.default_arg_flags):
     info = client.get_info(verbose = args.verbose)
     for f in info:
-        print(f"{f}: ratio:{info[f]['ratio']}, size:{info[f]['size']}, seedtime:{info[f]['seedtime']}")
+        print(f"{f}: ratio:{info[f]['ratio']}, size:{info[f]['size']}, seedtime:{info[f]['seedtime']}, tracker:{info[f]['tracker']}({info[f]['trackerstatus']})")
+        #print(info[f]['trackers'])
 
     
 def transform(title, season, episode):
