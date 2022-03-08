@@ -304,9 +304,14 @@ def filter_torrents(criteria):
             #print(f"{f} is '{info[f]['state']}', skipping")
             continue
 
+        if info[f]['state'] == 'Finished':
+            delete.append(f)
+            continue
+
         tracker = info[f]['tracker']
         ratio = info[f]['ratio']
         seedtime = info[f]['seedtime']
+
         if type == 'notracker':
             trackerstatus = info[f]['trackerstatus']
             if tracker is None or trackerstatus == "Error: unregistered torrent" or trackerstatus == 'error':
