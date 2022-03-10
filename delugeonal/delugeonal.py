@@ -127,6 +127,7 @@ def cleanup(args = minorimpact.default_arg_flags):
     #delete_torrents('ratio1', sort='size', description = "all torrents with a ratio > 1", target = target_free, verbose = verbose)
 
     for criteria in [{ 'type':'notracker', 'description':"torrents with no tracker" },
+                     { 'type':'done', 'description':"torrents marked 'done' by the client" },
                      { 'type':'public_ratio', 'description':"public torrents that have exceeded the minimum ratio" },
                      { 'type':'public_seedtime', 'description':"public torrents that have served their time", 'target':target_free, 'sort':'seedtime' },
                      { 'type':'public', 'description':"public torrents that have completed", 'target':target_free, 'sort':'size' },
@@ -304,10 +305,6 @@ def filter_torrents(criteria):
             #print(f"{f} is '{info[f]['state']}', skipping")
             continue
 
-        if info[f]['state'] == 'Finished':
-            delete.append(f)
-            continue
-
         tracker = info[f]['tracker']
         ratio = info[f]['ratio']
         seedtime = info[f]['seedtime']
@@ -316,6 +313,11 @@ def filter_torrents(criteria):
             trackerstatus = info[f]['trackerstatus']
             if tracker is None or trackerstatus == "Error: unregistered torrent" or trackerstatus == 'error':
                 delete.append(f)
+        elif type == 'done':
+            state = info[f]['state'].lower()
+            if (state is None or state in ('finished', 'done')):
+                delete.append(f)
+                continue
         elif type == 'private_low_ratio':
             if tracker not in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime[tracker]
