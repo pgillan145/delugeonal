@@ -443,7 +443,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                         uravo.alert(AlertGroup="move_media", AlertKey=f"{filename}", Severity=3, Summary=f"failed to extract {basename}.{extension}")
                         return
                     shutil.move(filename, filename + ".done")
-                    process_download(dirname + "/" + new_file)
+                    process_media_dir(dirname + "/" + new_file, args = args)
             else:
                 print(f"{basename}.{extension} is weird")
                 uravo.alert(AlertGroup="move_media", AlertKey=f"{filename}", Severity=3, Summary=f"{basename}.{extension} is weird")
