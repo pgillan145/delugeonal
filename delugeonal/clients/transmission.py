@@ -24,7 +24,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         command = [f'-t{id}', '--remove']
         if (remove_data is True):
             command = [f'-t{id}', '--remove-and-delete']
-        return self._do_command([command])
+        return self._do_command(command)
 
     def _do_command(self, command = []):
         if (len(command) == 0):
