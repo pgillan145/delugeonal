@@ -24,9 +24,9 @@ class site(ABC):
             cache['site'] = {}
         self.cache = cache['site']
         if (self.site_key is None):
-            raise Exception(f"site key is not defined")
+            raise Exception("site key is not defined")
         if (self.site_key) not in delugeonal.config:
-            raise Exception(f"no [{self.site_key}] section in config file")
+            raise Exception("no [{}] section in config file".format(self.site_key))
         self.config = delugeonal.config[self.site_key]
 
         self.rss_url = self.config['rss_url'] if ('rss_url' in self.config) else None
@@ -49,7 +49,7 @@ class site(ABC):
         """
 
         if (downloads is None):
-            raise Exception(f"downloads is not defined")
+            raise Exception("downloads is not defined")
 
         download_log = []
         download_count = 0
@@ -57,30 +57,30 @@ class site(ABC):
             parsed = PTN.parse(name)
                 
             if ('codec' not in parsed):
-                if (args.debug): print(f"couldn't parse codec from {name}")
+                if (args.debug): print("couldn't parse codec from {}".format(name))
                 continue
             if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
-                if (args.debug): print(f"couldn't parse title, season or episode from {name}")
+                if (args.debug): print("couldn't parse title, season or episode from {}".format(name))
                 continue
             if ('resolution' not in parsed):
                 # I have reservations about this.
                 parsed['resolution'] = '480p'
-            if (args.debug): print(f"{parsed}")
+            if (args.debug): print(parsed)
 
             item = { 'name':name, 'title':parsed['title'], 'season':parsed['season'], 'episode':parsed['episode'], 'url':url, 'codec':parsed['codec'], 'resolution':parsed['resolution']}
-            if(args.debug): print(f"{item}")
+            if(args.debug): print(item)
 
-            item_title = f"{item['title']} ({item['year']})" if 'year' in item else item['title']
+            item_title = "{} ({})".format(item['title'], item['year']) if 'year' in item else item['title']
             codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else config['default']['codec'] 
             resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else config['default']['resolution'] 
             if (item['codec'] != codec):
-                if (args.debug): print(f"invalid codec ({item['codec']}!={codec})")
+                if (args.debug): print("invalid codec ({}!={})".format(item['codec'], codec))
                 continue
             if (item['resolution'] != resolution):
-                if (args.debug): print(f"invalid resolution ({item['resolution']}!={resolution})")
+                if (args.debug): print("invalid resolution ({}!={})".format(item['resolution'], resolution))
                 continue
 
-            if (args.verbose): print(f"processing {item_title} S{item['season']}E{item['episode']}:")
+            if (args.verbose): print("processing {} S{}E{}:".format(item_title, item['season'], item['episode']))
             title = None
             for db in mediadbs:
                 if (db.istype('tv')):
@@ -88,16 +88,16 @@ class site(ABC):
                     if (title is not None):
                         break
             if (title is None):
-                uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':f"Can't get {db.name} title for {item_title}"})
-                if (args.verbose): print(f" ... FAILED: couldn't find {db.name} title for {item_title}")
+                uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
+                if (args.verbose): print(" ... FAILED: couldn't find {} title for {}".format(db.name, item_title))
                 continue
-            uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':f"Can't get {db.name} title for {item_title}"})
+            uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
 
             # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
             #   nefarious ends.
             transformation = delugeonal.transform(title, item['season'], item['episode'])
             if (transformation is not None):
-                if (args.verbose): print(f" ... applying transformation: '{title}'=>'{transformation['title']}', season {item['season']}=>{transformation['season']}, episode {item['episode']}=>{transformation['episode']}")
+                if (args.verbose): print(" ... applying transformation: '{}'=>'{}', season {}=>{}, episode {}=>{}".format(title, transformation['title'], item['season'], transformation['season'], item['episode'], transformation['episode']))
                 title = transformation['title']
                 item['season'] = transformation['season']
                 item['episode'] = transformation['episode']
@@ -105,17 +105,17 @@ class site(ABC):
             exists = False
             try:
                 exists = server.exists(title, item['season'], item['episode'], args = args)
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':f"Got {server.name} title for '{title}'"})
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(server.name, title)})
             except Exception as e:
-                if (args.verbose): print(f" ... FAILED: can't get {server.name} title for '{title}'")
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':f"Can't get {server.name} title for '{title}'"})
+                if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(server.name, title))
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':"Can't get {} title for '{}'".format(server.name, title)})
                 continue
             
             if (exists):
-                if (args.verbose): print(f" ... {title} S{item['season']}E{item['episode']} already in {server.name}")
+                if (args.verbose): print(" ... {} S{}E{} already in {}".format(title, item['season'], item['episode'], server.name))
                 continue
 
-            episode_key = f"{title}|S{item['season']}E{item['episode']}"
+            episode_key = "{}|S{}E{}".format(title, item['season'], item['episode'])
             if (episode_key in download_log):
                 # Yes, download_log *is* redundant (and a shitty hack), but in the case of --dryrun I don't want to add the download to the permanent cache, 
                 # but I *also* don't want to ask the user to download multiple copies of the same torrent.
@@ -124,20 +124,20 @@ class site(ABC):
             if (episode_key not in self.cache['downloads']):
                 self.cache['downloads'][episode_key] = { 'item':item }
             elif (args.force is False and 'date' in self.cache['downloads'][episode_key] and self.cache['downloads'][episode_key]['date'] > datetime.now() - timedelta(hours=1)):
-                if (args.verbose): print(f" ... already downloaded within the last hour")
+                if (args.verbose): print(" ... already downloaded within the last hour")
                 continue
 
             link_url = item['url']
-            if args.debug: print(f"link_url:{link_url}")
+            if args.debug: print("link_url:{}".format(link_url))
             if (os.path.exists(config['default']['download_dir']) is False):
-                raise Exception(f"{config['default']['download_dir']} does not exist.")
+                raise Exception(config['default']['download_dir'] + " does not exist.")
             torrent_filename = re.sub(" ", ".", item['name']) + ".torrent"
-            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"Download {torrent_filename} to {config['default']['download_dir']}? (Y/n) ", echo=True).lower()
+            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="Download {} to {}? (Y/n) ".format(torrent_filename, config['default']['download_dir']), echo=True).lower()
             if (c == 'y'):
-                if args.verbose: print(f" ... downloading {torrent_filename} to {config['default']['download_dir']}")
+                if args.verbose: print(" ... downloading {} to {}".format(torrent_filename, config['default']['download_dir']))
                 if (args.dryrun is False):
                     r = requests.get(link_url, stream=True)
-                    with open(f"{config['default']['download_dir']}/{torrent_filename}", "wb") as f:
+                    with open(config['default']['download_dir'] + '/' + torrent_filename, 'wb') as f:
                        for chunk in r.iter_content(chunk_size=128):
                           f.write(chunk)
                     self.cache['downloads'][episode_key]['date'] = datetime.now()

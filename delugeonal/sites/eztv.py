@@ -75,7 +75,6 @@ class MediaSite(delugeonal.mediasite.site):
         items = []
         # Return the results in order from highest seeded to lowest.
         for name, url, seeds in sorted(unsorted, key=lambda x: int(x[2]), reverse = True):
-            #print(f"{seeds}, {name}")
             items.append((name,url))
 
         return items

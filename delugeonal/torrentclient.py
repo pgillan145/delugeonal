@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 
 class TorrentClient(ABC):
-
+    def __init__(self, config):
+        self.config = config
+        
     @abstractmethod
     def add_torrent(self, torrent):
         pass

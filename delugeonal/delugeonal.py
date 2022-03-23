@@ -1,22 +1,27 @@
 import argparse
-from . import mediadbs, cache, client, config, server, mediasites
+from . import mediadbs, cache, cache_file, client, config, server, mediasites
 from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
+import importlib
 import minorimpact
+import minorimpact.config
 from operator import itemgetter
 import os
 import os.path
 import PTN
-import rarfile
 import re
 import shutil
 import sys
 import time
 from uravo import uravo
-from torrentool.api import Torrent
+#from torrentool.api import Torrent
+import bencode
 
 def main():
+
+    load_libraries()
+
     parser = argparse.ArgumentParser(description="delugeonal")
     parser.add_argument('-f', '--force', help = "bypass built-in delays", action='store_true')
     parser.add_argument('-v', '--verbose', help = "extra loud output", action='store_true')
@@ -60,7 +65,7 @@ def main():
 
 def add(directory, args = minorimpact.default_arg_flags):
     if (os.path.exists(directory) is False):
-        sys.exit(f"'{directory}' doesn't exist")
+        sys.exit("'{}' doesn't exist".format(directory))
     if (args.dryrun): verbose = True
 
     total, used, free = shutil.disk_usage('/')
@@ -69,13 +74,18 @@ def add(directory, args = minorimpact.default_arg_flags):
     for f in os.listdir(directory):
         data = None
         if (re.search('.torrent$', f)):
-            data = directory + "/" + f
-            t = Torrent.from_file(data)
-            if (args.verbose): print(f"{t}\nsize:{minorimpact.disksize(t.total_size, units='b')}")
-            if (free - t.total_size < target_free):
-                if (args.verbose): print(f"not enough free space for {f}")
+            total_size = 0
+            m = open(directory + '/' + f, 'rb')
+            torrent_data = m.read()
+            t = bencode.decode(torrent_data)
+            for torrent_file in t['info']['files']:
+                total_size = total_size + int(torrent_file['length'])
+            if (args.verbose): print("{}\nsize:{}".format(f, minorimpact.disksize(total_size, units='b')))
+            if (free - total_size < target_free):
+                if (args.verbose): print("not enough free space for {}".format(f))
                 continue
-            free = free - t.total_size
+            free = free - total_size
+            data = directory + '/' + f
         elif (re.search('.magnet$', f)):
             m = open(directory + '/' + f, 'r')
             data = m.read()
@@ -84,18 +94,18 @@ def add(directory, args = minorimpact.default_arg_flags):
             #   essentially add all magnets, since 'free' is not adjusted down after each one is added.)
             #   Maybe use this? https://github.com/webtorrent/torrent-discovery
             if (free < target_free):
-                if (args.verbose): print(f"not enough free space for {f}")
+                if (args.verbose): print("not enough free space for {}".format(f))
                 continue
 
         if (data is None):
             continue
 
-        if (args.verbose): print(f"adding {f}")
+        if (args.verbose): print("adding {}".format(f))
         if (args.dryrun is False):
             add_torrent = client.add_torrent(data)
-            if (args.verbose): print(f"{add_torrent}")
+            if (args.verbose): print(add_torrent)
             if (re.search('responded: "success"', add_torrent)):
-                if (args.verbose): print(f"deleting {f}")
+                if (args.verbose): print("deleting {}".format(f))
                 os.remove(directory + '/' + f)
 
 def cleanup(args = minorimpact.default_arg_flags):
@@ -107,14 +117,14 @@ def cleanup(args = minorimpact.default_arg_flags):
 
     total, used, free = shutil.disk_usage('/')
     target_free = total * .05
-    if (args.verbose): print(f"free space:{minorimpact.disksize(free, units='b')}/{minorimpact.disksize(target_free, units='b')}")
+    if (args.verbose): print("free space:{}/{}".format(minorimpact.disksize(free, units='b'),minorimpact.disksize(target_free, units='b')))
 
     # Figure out how much space we *actually* need to free up based on what's waiting in the download queue.
     for f in os.listdir(download_dir):
         data = None
         if (re.search('.torrent$', f)):
             t = Torrent.from_file(download_dir + '/' + f)
-            if (args.verbose): print(f"need additional space for {t}:{minorimpact.disksize(t.total_size, units='b')}")
+            if (args.verbose): print("need additional space for {}:{}".format(t, minorimpact.disksize(t.total_size, units='b')))
             target_free = target_free + t.total_size
 
     #delete_torrents('notracker', description = "torrents with no tracker", verbose = verbose)
@@ -142,15 +152,15 @@ def cleanup(args = minorimpact.default_arg_flags):
                 return
 
         description = criteria['description'] if 'description' in criteria else None
-        if (args.verbose and description is not None): print(f"checking for {description}")
+        if (args.verbose and description is not None): print("checking for {}".format(description))
         delete = filter_torrents(criteria)
         for f in delete:
-            if (args.verbose): print(f"deleting {f}")
+            if (args.verbose): print("deleting {}".format(f))
             info = client.get_info(f)
-            if (args.verbose): print(f"  ratio:{info[f]['ratio']:.1f} seedtime:{info[f]['seedtime']/(3600*24):.1f} state:{info[f]['state']} size:{minorimpact.disksize(info[f]['size'])}")
-            if (args.verbose): print(f"  Tracker: {info[f]['tracker']}/{info[f]['trackerstatus']}")
-            if (args.verbose): print(f"  file:{info[f]['data_file']}")
-            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {f}? (Y/n) ", echo=True).lower()
+            if (args.verbose): print("  ratio:{:.1f} seedtime:{:.1f} state:{} size:{}".format(info[f]['ratio'], info[f]['seedtime']/(3600*24), info[f]['state'], minorimpact.disksize(info[f]['size'])))
+            if (args.verbose): print("  Tracker: {}/{}".format(info[f]['tracker'], info[f]['trackerstatus']))
+            if (args.verbose): print("  file:{}".format(info[f]['data_file']))
+            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(f), echo=True).lower()
             if (c == 'y'):
                 if (args.dryrun is False):
                     del_torrent = client.delete_torrent(f, remove_data=True)
@@ -163,10 +173,10 @@ def cleanup(args = minorimpact.default_arg_flags):
 
 def clear_cache(args = minorimpact.default_arg_flags):
     """Remove all the values from the local persistent storage."""
-    if (args.verbose): print(f"clearing cache")
+    if (args.verbose): print("clearing cache")
     keys = list(cache.keys())
     [cache.pop(key) for key in keys]
-    if (args.verbose): print(f" ... DONE")
+    if (args.verbose): print(" ... DONE")
 
 def dump_cache(args = minorimpact.default_arg_flags):
     dump(cache)
@@ -179,12 +189,12 @@ def fill(search_string, args = minorimpact.default_arg_flags):
     str
         The name of the show for which to find missing episodes.
     """
-    if (args.debug): print(f"delugeonal.fill()")
+    if (args.debug): print("delugeonal.fill()")
     show = server.show_name(search_string)
     if (show is None):
-        raise Exception (f"Can't get show for '{search_string}'")
+        raise Exception ("Can't get show for '{}'".format(search_string))
 
-    if (args.debug): print(f"'{search_string}' => '{show}'")
+    if (args.debug): print("'{}' => '{}'".format(search_string, show))
     episodes = server.episodes(show)
     total_episodes = None
     mediadb = None
@@ -195,7 +205,7 @@ def fill(search_string, args = minorimpact.default_arg_flags):
             break
 
     if (mediadb is None or total_episodes is None):
-        raise Exception(f"Can't get season/episode count")
+        raise Exception("Can't get season/episode count")
 
     missing = []
     last_season = 0
@@ -241,10 +251,10 @@ def fill(search_string, args = minorimpact.default_arg_flags):
             last_season += 1
 
     if (len(missing) == 0):
-        print(f"No missing episodes found for {show}")
+        print("No missing episodes found for {}".format(show))
         return
 
-    print(f"Found {len(missing)} missing episode(s) for {show}")
+    print("Found {} missing episode(s) for {}".format(len(missing), show))
     for m in missing:
         season = str(m['season'])
         episode = str(m['episode'])
@@ -252,12 +262,11 @@ def fill(search_string, args = minorimpact.default_arg_flags):
         episode = '0' + episode if int(episode) < 10 else episode
 
         search_string = re.sub(' \(\d\d\d\d\)$', '', show)
-        search_string = f'{search_string} S{season}E{episode}'
-        if (args.verbose): print(f"searching for '{search_string}'")
+        search_string = '{} S{}E{}'.format(search_string, season, episode)
+        if (args.verbose): print("searching for '{}'".format(search_string))
         for site in (mediasites):
             results = site.search(search_string, download = False, args = args)
             if (results is not None and len(results) > 0):
-                #if (args.verbose): print(f"found {len(results)} result(s) from {site.name}")
                 if (site.download(results, args = args) > 0):
                     break
 
@@ -299,10 +308,8 @@ def filter_torrents(criteria):
     info = client.get_info()
     for f in sorted(info.keys(), key=lambda x: info[x][sort], reverse=True):
         if config['cleanup']['wait_for_file_move'] and info[f]['data_file'] is not None and re.match(download_location, info[f]['data_file']):
-            #print(f"{f} has not been moved, skipping")
             continue
         if (info[f]['state'] == 'Downloading' or info[f]['state'] == 'Checking'):
-            #print(f"{f} is '{info[f]['state']}', skipping")
             continue
 
         tracker = info[f]['tracker']
@@ -354,6 +361,44 @@ def filter_torrents(criteria):
                 delete.append(f)
     return delete
 
+
+def load_libraries():
+    global config, cache, client, mediadbs, mediasites, server
+
+    config = minorimpact.config.getConfig(script_name='delugeonal')
+    if ('cache_file' in config['default']):
+        cache_file = config['default']['cache_file']
+        if (os.path.exists(cache_file)):
+            with open(cache_file, "rb") as f:
+                cache = pickle.load(f)
+
+    mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config['default'] and config['default']['mediadblibs'] is not None else None
+    if (mediadblibs is not None and len(mediadblibs)>0):
+        for mediadblib in (mediadblibs):
+       	    db = importlib.import_module(mediadblib, __name__)
+            try:
+                mediadbs.append(db.MediaDb())
+            except Exception as e:
+                print(e)
+
+    mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
+    if (mediaserverlib is not None):
+        mediaserver = importlib.import_module(mediaserverlib, __name__)
+        server = mediaserver.MediaServer()
+
+    mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
+    if (mediasitelibs is not None and len(mediasitelibs) > 0):
+        for mediasitelib in (mediasitelibs):
+            #site = importlib.import_module(mediasitelib, __name__)
+            site = importlib.import_module(mediasitelib, 'delugeonal')
+            mediasites.append(site.MediaSite())
+
+    torrentclientlib = config['default']['torrentclientlib'] if 'torrentclientlib' in config['default'] and config['default']['torrentclientlib'] is not None else None
+    if (torrentclientlib is not None):
+        #torrentclient = importlib.import_module(torrentclientlib, __name__)
+        torrentclient = importlib.import_module(torrentclientlib, 'delugeonal')
+        client = torrentclient.TorrentClient(config)
+
 def media_files(dirname, video_formats = ['mp4', 'mkv'], count = 0):
     video_regex = '|'.join(video_formats)
     for f in os.listdir(dirname):
@@ -368,16 +413,16 @@ def meta_info(parsed, fields, delim='.'):
     meta_info = ''
     for field in fields:
         if (field in parsed and len(parsed[field]) > 0): meta_info = meta_info + parsed[field] + delim
-    meta_info = re.sub(f'{delim}$', '', meta_info)
+    meta_info = re.sub(delim + '$', '', meta_info)
     return meta_info
 
 def move_download(name, target, args = minorimpact.default_arg_flags):
-    if (args.verbose): print(f"moving {name} to {target}")
+    if (args.verbose): print("moving {} to {}".format(name, target))
     if (args.dryrun is False):
         try:
             client.move_torrent(name, target)
         except Exception as e:
-            print(f"ERROR: {e}")
+            print("ERROR: {}".format(e))
     return
 
 def move_media(args = minorimpact.default_arg_flags):
@@ -411,6 +456,8 @@ def move_media(args = minorimpact.default_arg_flags):
     return
 
 def process_media_dir(filename, args = minorimpact.default_arg_flags):
+    import rarfile
+
     media_dirs = eval(config['default']['media_dirs'])
     search_history = {}
     video_formats = ['mp4', 'mkv', 'avi', 'mpg', 'mpeg', 'm4v']
@@ -423,7 +470,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                 process_media_dir(filename + '/' + f, args = args)
         return
 
-    if (args.verbose): print(f"processing {filename}")
+    if (args.verbose): print("processing {}".format(filename))
     data = {}
     basename = os.path.basename(filename)
     dirname = os.path.dirname(filename)
@@ -434,19 +481,19 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             namelist = rf.namelist()
             new_file = namelist[0]
             if (re.search("\.(" + video_regex + ")$", new_file) and len(namelist) == 1):
-                if (args.verbose):print(f"extracting {basename}.{extension}")
+                if (args.verbose):print("extracting {}.{}".format(basename, extension))
                 if (args.dryrun is False):
                     try:
                         rf.extractall(path=dirname)
                     except Exception as e:
-                        print(f"failed to extract {basename}.{extension}\n{e}")
-                        uravo.alert(AlertGroup="move_media", AlertKey=f"{filename}", Severity=3, Summary=f"failed to extract {basename}.{extension}")
+                        print("failed to extract {}.{}\n{}".format(basename, extension, e))
+                        uravo.alert(AlertGroup="move_media", AlertKey=filename, Severity=3, Summary="failed to extract {}.{}".format(basename, extension))
                         return
                     shutil.move(filename, filename + ".done")
                     process_media_dir(dirname + "/" + new_file, args = args)
             else:
-                print(f"{basename}.{extension} is weird")
-                uravo.alert(AlertGroup="move_media", AlertKey=f"{filename}", Severity=3, Summary=f"{basename}.{extension} is weird")
+                print("{}.{} is weird".format(basename, extension))
+                uravo.alert(AlertGroup="move_media", AlertKey=filename, Severity=3, Summary="{}.{} is weird".format(basename, extension))
         return
 
     if (extension not in video_formats): return
@@ -455,8 +502,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     if ('codec' in parsed and parsed['codec'] == 'H.264'): parsed['codec'] = 'x264'
     if ('resolution' not in parsed):  parsed['resolution'] = '480p'
 
-    if (args.debug): print(f"{basename}:{parsed}")
-    parsed_title = f'{parsed["title"]} ({parsed["year"]})' if 'year' in parsed else parsed['title']
+    if (args.debug): print("{}:{}".format(basename, parsed))
+    parsed_title = '{} ({})'.format(parsed['title'], parsed['year']) if 'year' in parsed else parsed['title']
 
     if ('season' in parsed):
         mediadb = None
@@ -486,10 +533,10 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                     lev = fuzz.ratio(t,parsed_title)
                     if (lev >= min_lev):
                         title = t
-                        if (args.debug): print(f"{t} (match:{lev})")
+                        if (args.debug): print("{} (match:{})".format(t, lev))
                         for media_dir in media_dirs:
                             if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
-                                if (args.debug): print(f"found {media_dir}/{config['default']['tv_dir']}/{title}")
+                                if (args.debug): print("found {}/{}/{}".format(media_dir, config['default']['tv_dir'], title))
                                 tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
                     if (tv_dir is not None): 
                         mediadb.match_log(os.path.basename(filename), parsed_title, titles[t]['title'], titles[t]['year'])
@@ -499,7 +546,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
         #   a match.
         if (title is None):
             if mediadb is None:
-                raise Exception(f"Can't find a mediadb object.")
+                raise Exception("Can't find a mediadb object.")
             title = mediadb.get_title(parsed_title, year=True, headless = args.yes)
             if (title is not None):
                 for media_dir in media_dirs:
@@ -507,10 +554,10 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                         tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
 
         if (tv_dir is None and title is None):
-            print(f"Can't find a valid title for {filename}")
-            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=3, Summary=f"Can't find a valid title for {filename}")
+            print("Can't find a valid title for {}".format(filename))
+            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=3, Summary="Can't find a valid title for {}".format(filename))
             return
-        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary=f"Found a valid title for {filename}:{title}")
+        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="Found a valid title for {}:{}".format(filename, title))
 
         if (tv_dir is None and title is not None):
             tv_dir = media_dirs[0] + '/' + config['default']['tv_dir'] + '/' + title
@@ -521,43 +568,43 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             season = transformation['season']
             episode = transformation['episode']
             if (int(episode) < 10): episode = '0' + str(int(episode))
-            new_basename = f"{title}.S{season}E{episode}"
+            new_basename = "{}.S{}E{}".format(title, season, episode)
             meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
             if (len(meta) > 0):
                 new_basename = new_basename + '.' + meta
-            if (args.debug): print(f"{new_basename}")
+            if (args.debug): print(new_basename)
 
         if (os.path.exists(tv_dir + "/" + new_basename + "." + extension) and args.yes):
-            uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=3, Summary=f"{tv_dir}/{new_basename}.{extension} already exists.")
-            if (args.verbose): print(f"{tv_dir}/{new_basename}.{extension} already exists.")
+            uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=3, Summary="{}/{}.{} already exists.".format(tv_dir, new_basename, extension))
+            if (args.verbose): print("{}/{}.{} already exists.".format(tv_dir, new_basename, extension))
             return
-        uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=0, Summary=f"{tv_dir}/{new_basename}.{extension} doesn't exist.")
+        uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=0, Summary="{}/{}.{} doesn't exist.".format(tv_dir, new_basename, extension))
 
         # Get user confimation before we move/delete anything.
-        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"move {basename}.{extension} to {tv_dir}/{new_basename}.{extension}? (Y/n) ", echo=True).lower()
+        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="move {}.{} to {}/{}.{}? (Y/n) ".format(basename, extension, tv_dir, new_basename, extension), echo=True).lower()
         if (c == 'y'):
-            if (args.verbose): print(f"moving {basename}.{extension} to {tv_dir}/{new_basename}.{extension}")
+            if (args.verbose): print("moving {}.{} to {}/{}.{}".format(basename, extension, tv_dir, new_basename, extension))
             if (args.dryrun is False):
                 if (os.path.exists(tv_dir) is False):
-                    if (args.verbose): print(f"creating {tv_dir}")
+                    if (args.verbose): print("creating {}".format(tv_dir))
                     os.mkdir(tv_dir)
             if (os.path.exists(tv_dir + '/' + new_basename + '.' + extension)):
-                c = minorimpact.getChar(default='n', end='\n', prompt=f"overwrite {tv_dir}/{new_basename}.{extension}? (y/N) ", echo=True).lower()
+                c = minorimpact.getChar(default='n', end='\n', prompt="overwrite {}/{}.{}? (y/N) ".format(tv_dir, new_basename, extension), echo=True).lower()
                 if (c == 'n'):
                     return
 
             if (args.dryrun is False):
                 shutil.move(filename, tv_dir + '/' + new_basename + '.' + extension)
-                uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary=f"moved {basename}.{extension} to {tv_dir}")
+                uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {}.{} to {}".format(basename, extension, tv_dir))
             if (os.path.exists(dirname + '/' + basename + '.srt')):
-                if (args.verbose): print(f"moving {basename}.srt to {tv_dir}/{new_basename}.en.srt")
+                if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, tv_dir, new_basename))
                 if (args.dryrun is False):
                     shutil.move(dirname + '/' + basename + '.srt', tv_dir + '/' + new_basename + '.en.srt')
 
             if (dirname != config['default']['download_dir'] and media_files(dirname, video_formats = video_formats) == 0):
-                c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {dirname}? (Y/n) ", echo=True).lower()
+                c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(dirname), echo=True).lower()
                 if (c == 'y'):
-                    if (args.verbose): print(f"deleting {dirname}")
+                    if (args.verbose): print("deleting {}".format(dirname))
                     if (args.dryrun == False): shutil.rmtree(dirname)
         elif (c == 'q'):
             sys.exit()
@@ -569,7 +616,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             if (db.istype('movie')): mediadb = db
 
         if mediadb is None:
-            raise Exception(f"Can't find a mediadb object.")
+            raise Exception("Can't find a mediadb object.")
         
         for media_dir in media_dirs:
             if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title)):
@@ -579,16 +626,16 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
         if (title is None):
             title = mediadb.get_title(parsed_title, year=True, headless = args.yes)
-            if (args.debug):print(f"got {title} from {parsed_title}")
+            if (args.debug):print("got {} from {}".format(title, parsed_title))
             if (title is not None):
                 for media_dir in media_dirs:
                     if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + title)):
                         movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + title
 
         if (title is None):
-            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='yellow', Summary=f"Can't find a title for {filename}")
+            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='yellow', Summary="Can't find a title for {}".format(filename))
             return
-        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='green', Summary=f"Found '{title}' for {filename}")
+        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='green', Summary="Found '{}' for {}".format(title, filename))
 
         if (movie_dir is None):
             movie_dir = media_dirs[0] + '/' + config['default']['movie_dir'] + '/' + title
@@ -599,38 +646,38 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             new_basename = new_basename + ' - ' + meta
 
         if (os.path.exists(movie_dir + '/' + new_basename + '.' + extension) and args.yes):
-            uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=3, Summary=f"{movie_dir}/{new_basename}.{extension} already exists.")
-            if (args.verbose): print(f"{movie_dir}/{new_basename}.{extension} already exists.");
+            uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=3, Summary="{}/{}.{} already exists.".format(movie_dir, new_basename, extension))
+            if (args.verbose): print("{}/{}.{} already exists.".format(movie_dir, new_basename, extension));
             return
-        uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=0, Summary=f"{movie_dir}/{new_basename}.{extension} doesn't exist.")
+        uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=0, Summary="{}/{}.{} doesn't exist.".format(movie_dir, new_basename, extension))
 
         # Move and delete the file.
-        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"move {basename}.{extension} to {movie_dir}/{new_basename}.{extension}? (Y/n) ", echo=True).lower()
+        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="move {}.{} to {}/{}.{}? (Y/n) ".format(basename, extension, movie_dir, new_basename, extension), echo=True).lower()
         if (c == 'y'):
             if (args.dryrun is False and os.path.exists(movie_dir) is False):
-                if (args.verbose): print(f"making {movie_dir}")
+                if (args.verbose): print("making {}".format(movie_dir))
                 os.mkdir(movie_dir)
             if (os.path.exists(movie_dir + '/' + new_basename + '.' + extension)):
-                c = minorimpact.getChar(default='n', end='\n', prompt=f"overwrite {movie_dir}/{new_basename}.{extension}? (y/N) ", echo=True).lower()
+                c = minorimpact.getChar(default='n', end='\n', prompt="overwrite {}/{}.{}? (y/N) ".format(movie_dir, new_basename, extension), echo=True).lower()
                 if (c == 'n'):
                     return
-            if (args.verbose): print(f"moving {basename}.{extension} to {new_basename}.{extension}")
+            if (args.verbose): print("moving {}.{} to {}.{}".format(basename, extension, new_basename, extension))
             if (args.dryrun == False):
                     shutil.move(filename, movie_dir + '/' + new_basename + '.' + extension)
-                    uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary=f"moved {basename}.{extension} to {movie_dir}/{new_basename}.{extension}")
+                    uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {basename}.{extension} to {movie_dir}/{new_basename}.{extension}".format(basename, extension, movie_dir, new_basename, extension))
             if (os.path.exists(dirname + '/' + basename + '.srt')):
-                if (args.verbose): print(f"moving {basename}.srt to {movie_dir}/{new_basename}.en.srt")
+                if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, movie_dir, new_basename))
                 if (args.dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + new_basename + '.en.srt')
 
             if (dirname != config['default']['download_dir'] and media_files(dirname, video_formats = video_formats) == 0):
-                c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt=f"delete {dirname}? (Y/n) ", echo=True).lower()
+                c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(dirname), echo=True).lower()
                 if (c == 'y'):
-                    if (args.verbose): print(f"deleting {dirname}")
+                    if (args.verbose): print("deleting {}".format(dirname))
                     if (args.dryrun == False): shutil.rmtree(dirname)
     return
 
 def rss(args = minorimpact.default_arg_flags):
-    if (args.debug): print(f"delugeonal.rss()")
+    if (args.debug): print(delugeonal.rss())
     for site in (mediasites):
         try:
             site.rss(args = args)
@@ -638,7 +685,7 @@ def rss(args = minorimpact.default_arg_flags):
             print(e)
 
 def search(search_string, args = minorimpact.default_arg_flags):
-    if (args.verbose): print(f"searching for '{search_string}'")
+    if (args.verbose): print("searching for '{}'".format(search_string))
     results = []
     for site in (mediasites):
         site.search(search_string, args = args)
@@ -646,7 +693,7 @@ def search(search_string, args = minorimpact.default_arg_flags):
 def torrents(args = minorimpact.default_arg_flags):
     info = client.get_info(verbose = args.verbose)
     for f in info:
-        print(f"{f}: ratio:{info[f]['ratio']}, size:{info[f]['size']}, seedtime:{info[f]['seedtime']}, tracker:{info[f]['tracker']}({info[f]['trackerstatus']})")
+        print("{}: ratio:{}, size:{}, seedtime:{}, tracker:{}({})".format(f, info[f]['ratio'], info[f]['size'], info[f]['seedtime'], info[f]['tracker'], info[f]['trackerstatus']))
         #print(info[f]['trackers'])
 
     
@@ -661,7 +708,6 @@ def transform(title, season, episode):
                 match = re.search('^([a-z]+)([=<>]+)([0-9]+)$', c)
                 if (match):
                     criteria.append({"field":match.group(1), "cmp":match.group(2), "value":match.group(3)})
-                    #if (args.debug): print(f"criteria:{criteria}")
 
             for a in transform['action'].split(','):
                 match = re.search('^([a-z]+)([+-=])(.+)$', a)
@@ -670,23 +716,22 @@ def transform(title, season, episode):
                     if re.search('^[0-9]+$', value):
                         foo = {"field":match.group(1), "action":match.group(2), "value":value}
                     else:
-                        foo = {"field":match.group(1), "action":match.group(2), "value":f'"{value}"'}
+                        foo = {"field":match.group(1), "action":match.group(2), "value":'"{}"'.format(value)}
                     action.append(foo)
-                    #if (args.debug): print(f"action:{action}")
 
             if (criteria and action):
                 transformation = {'title': title, 'season': season, 'episode':episode}
                 criteria_string = ''
                 for c in criteria:
-                    criteria_string = f'{criteria_string} and {c["field"]}{c["cmp"]}{c["value"]}'
+                    criteria_string = '{} and {}{}{}'.format(criteria_string, c["field"], c["cmp"], c["value"])
                 criteria_string = re.sub('^ and ', '', criteria_string)
                 if (eval(criteria_string, {}, transformation)):
                     for a in action:
                         if (a['action'] == '='):
-                            s = f"{a['field']} = {a['value']}"
+                            s = "{} = {}".format(a['field'], a['value'])
                             exec(s, {}, transformation)
                         else:
-                            s = f"{a['field']} = {a['field']} {a['action']} {a['value']}"
+                            s = "{} = {} {} {}".format(a['field'], a['field'], a['action'], a['value'])
                             exec(s, {}, transformation)
 
                 return transformation

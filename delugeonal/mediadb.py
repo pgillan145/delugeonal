@@ -82,11 +82,11 @@ class db(ABC):
                 search_title = re.sub(' \(\d\d\d\d\)$', '', name)
                 i = 0
                 items = {}
-                print(f"Searching for '{search_title}':")
+                print("Searching for '{}':".format(search_title))
                 for t in titles:
                     items[i] = t
                     i = i + 1
-                    output = f"{i:-2d} {t} (match:{fuzz.ratio(t.lower(),search_title.lower())})"
+                    output = "{:-2d} {} (match:{})".format(i, t, fuzz.ratio(t.lower(),search_title.lower()))
                     print(output)
                 pick = input("Choose a title/enter id/enter a name manually: ").rstrip()
                 if (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
@@ -120,13 +120,13 @@ class db(ABC):
             self.cache[name]['year'] = title_year
             self.cache[name]['mod_date'] = datetime.now()
             self.match_log(None, name,title, title_year)
-            if (year is True and title_year is not None): title = f"{title} ({title_year})"
+            if (year is True and title_year is not None): title = "{} ({})".format(title, title_year)
         return title
 
     def istype(self, type):
         """Returns True if `type` is in self.types."""
         if type is None:
-            raise Exception(f"no type specified")
+            raise Exception("no type specified")
         return type in self.types
 
     def match_log(self, filename, name, title, year):
@@ -150,11 +150,11 @@ class db(ABC):
             try:
                 self.match_log_file = open(config['default']['match_debug_log'], 'a')
             except Exception as e:
-                if (args.verbose): print(f"Can't write match log: {e}")
+                if (args.verbose): print("Can't write match log: {}".format(e))
                 return
 
         if (self.match_log_file is not None):
-            self.match_log_file.write(f'"{self.name}","{filename}","{name}","{title}","{year}"\n')
+            self.match_log_file.write('"{}","{}","{}","{}","{}"\n'.format(self.name, filename, name, title, year))
 
     @abstractmethod
     def search_title(self, title):

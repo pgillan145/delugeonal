@@ -7,5 +7,5 @@ plexapi
 Python-Levenshtein
 pyyaml
 tvdb_v4_official > 1.0.7
-torrentool
+bencode.py
 uravo

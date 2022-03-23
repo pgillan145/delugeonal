@@ -51,7 +51,7 @@ class MediaDb(delugeonal.mediadb.db):
             item = self.get_by_id(result['tvdb_id'])
             if (item is not None):
                 if parsed_year is not None and item['year'] != parsed_year: continue
-                titles[f"{item['title']} ({item['year']})"] = item
+                titles["{} ({})".format(item['title'], item['year'])] = item
 
         return titles
 

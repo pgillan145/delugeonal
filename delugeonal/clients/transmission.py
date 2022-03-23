@@ -1,41 +1,38 @@
 import delugeonal.torrentclient
-from delugeonal import config, server
+from dumper import dump
 import json
-import os
+#import os
 import re
-import shutil
 import subprocess
-import tempfile
-import time
-import yaml
+#import time
 
 class TorrentClient(delugeonal.torrentclient.TorrentClient):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
 
     def add_torrent(self, f, path=None):
-        command = [f'--add',f'{f}']
+        command = ['--add',f]
         if (path is not None):
-            command = [f'--add','{f}','--download-dir',f'{path}']
+            command = ['--add',f,'--download-dir',path]
         return self._do_command(command)
 
     def delete_torrent(self, f, remove_data=False):
         id = self.get_id(f)
-        command = [f'-t{id}', '--remove']
+        command = ['-t{}'.format(id), '--remove']
         if (remove_data is True):
-            command = [f'-t{id}', '--remove-and-delete']
+            command = ['-t{}'.format(id), '--remove-and-delete']
         return self._do_command(command)
 
     def _do_command(self, command = []):
         if (len(command) == 0):
             return
-        command.insert(0, config['transmission']['transmission_remote'])
+        #dump(self.config)
+        command.insert(0, self.config['transmission']['transmission_remote'])
+        #dump(command)
         #print(' '.join(command))
         proc = subprocess.Popen(command, stdout=subprocess.PIPE)
         #time.sleep(1)
         output  = str(proc.stdout.read(), 'utf-8')
-        #print(f"returncode:{proc.returncode}")
-        #print(f"output:{output}")
         return output
 
     def get_torrent_file(self, filename, verbose=False, config = None):
@@ -49,7 +46,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
     def get_id(self, filename, verbose = False):
         info = self.get_info()
         if (filename not in info):
-            raise Exception(f"can't find ID for {filename}")
+            raise Exception("can't find ID for {}".format(filename))
         return info[filename]['id']
 
     def get_info(self, filename = None, verbose=False):
@@ -66,7 +63,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
             if (m is None): continue
             g = m.groupdict()
             id = g['id']
-            info_str = self._do_command([f'-t{id}', '-i'])
+            info_str = self._do_command(['-t{}'.format(id), '-i'])
 
             f = None
             for l in info_str.split('\n'):
@@ -83,7 +80,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
 
                 s = re.search('^  Location: (.+)$', l)
                 if (s):
-                    info[f]["data_file"] = f'{s.groups()[0]}/{f}'
+                    info[f]["data_file"] = '{}/{}'.format(s.groups()[0], f)
 
                 s = re.search("^  Ratio: ([\d\.]+)", l)
                 if (s):
@@ -110,7 +107,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                     info[f]["size"] = size
 
             if (id and f):
-                tracker_str = self._do_command([f'-t{id}','-it'])
+                tracker_str = self._do_command(['-t{}'.format(id),'-it'])
                 tracker = None
                 trackers = []
                 #  Tracker 2: udp://tracker.leechers-paradise.org:6969
@@ -144,7 +141,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                         #tracker['name'] = g['names']
                         names = g['name'].split('.')
                         names = names[::-1]
-                        tracker['name'] = f'{names[1]}.{names[0]}'
+                        tracker['name'] = '{}.{}'.format(names[1],names[0])
                         tracker['port'] = g['port']
                         tracker['protocol'] = g['protocol']
 
@@ -170,7 +167,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         if (len(info.keys()) == 0):
             exception = "no torrent info"
             if (filename is not None):
-                exception = f"{exception} for {filename}"
+                exception = "{} for {}".format(exception, filename)
             raise Exception(exception)
 
         if (filename):
@@ -180,7 +177,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
 
     def move_torrent(self, torrent, target):
         id = self.get_id(torrent)
-        command = [f'-t{id}', '--move',target]
+        command = ['-t{}'.format(id), '--move',target]
         self._do_command(command)
 
     def pause_all(self):

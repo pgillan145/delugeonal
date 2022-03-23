@@ -57,7 +57,7 @@ class MediaDb(delugeonal.mediadb.db):
             if (item is not None):
                 if search_year is not None and int(item['year']) != int(search_year):
                     continue
-                titles[f"{item['title']} ({item['year']})"] = item
+                titles['{} ({})'.format(item["title"], item["year"])] = item
         return titles
 
     def episode(self):

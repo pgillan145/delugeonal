@@ -55,7 +55,7 @@ class MediaSite(delugeonal.mediasite.site):
                     The download url.
         """
         if (search_string is None):
-            raise Exception(f"Invalid search string")
+            raise Exception("Invalid search string")
 
         search_url = self.search_url + "/" + str(search_string)
         r = requests.get(search_url)
@@ -70,7 +70,6 @@ class MediaSite(delugeonal.mediasite.site):
         items = []
         # Return the results in order from highest seeded to lowest.
         for name, url, seeds in sorted(unsorted, key=lambda x: int(x[2]), reverse = True):
-            #print(f"{seeds}, {name}")
             items.append((name,url))
 
         return items

@@ -23,7 +23,7 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
 
         show = self._show(title)
         if (show is None):
-            raise Exception(f"Can't find '{title}' in {self.name}")
+            raise Exception("Can't find '{}' in {}".format(title, self.name))
 
         episodes = []
         for episode in show.episodes():
@@ -59,6 +59,6 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
     def show_name(self, search_string):
         show = self._show(search_string)
         if (show is None):
-            raise Exception(f"Can't find '{search_string}' in {self.name}")
+            raise Exception("Can't find '{}' in {}".format(search_string, self.name))
         return show.title
 

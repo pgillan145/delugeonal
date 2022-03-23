@@ -12,15 +12,15 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         super().__init__()
 
     def add_torrent(self, f, path=None):
-        command = f'add "{f}"'
+        command = 'add "{}"'.format(f)
         if (path is not None):
-            command = f'add --path "{path}" "{f}"'
+            command = 'add --path "{}" "{}"'.format(path, f)
         return self._do_command([command])
 
     def delete_torrent(self, f, remove_data=False):
-        command = f'del "{f}"'
+        command = 'del "{}"'.format(f)
         if (remove_data is True):
-            command = f'del --remove_data "{f}"'
+            command = 'del --remove_data "{}"'.format(f)
         return self._do_command([command])
 
     def _do_command(self, command = []):
@@ -33,7 +33,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         return output
 
     def get_config(self):
-        deluge_config = yaml.safe_load(self._do_command([f'config']))
+        deluge_config = yaml.safe_load(self._do_command(['config']))
         return deluge_config
 
     def get_data_file(self, filename, verbose=False, config = None):
@@ -45,18 +45,18 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         if (config['move_completed']):
             data_dir = config['move_completed_path']
 
-        if os.path.exists(f"{data_dir}/{filename}"):
-            data_file = f"{data_dir}/{filename}"
+        if os.path.exists("{}/{}".format(data_dir, filename)):
+            data_file = "{}/{}".format(data_dir, filename)
         return data_file
 
     def get_info(self, filename = None, verbose=False):
         deluge_config = self.get_config()
         state_dir = os.path.dirname(deluge_config["plugins_location"]) + "/state"
-        if verbose: print(f"pulling deluge info for {filename}")
+        if verbose: print("pulling deluge info for {}".format(filename))
         if (filename):
-            command = [f"info \"{filename}\""]
+            command = ['info "{}"'.format(filename)]
         else:
-            command = [f"info"]
+            command = ['info']
         info_str = self._do_command(command)
 
         f = None
@@ -109,21 +109,21 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         if (len(info.keys()) == 0):
             exception = "no torrent info"
             if (filename is not None):
-                exception = f"{exception} for {filename}"
+                exception = "{} for {}".format(exception, filename)
             raise Exception(exception)
         return info
 
     def get_torrent_file(self, filename, verbose=False, config = None):
-        if(verbose):print(f"get_torrent_file({filename})")
+        if(verbose):print("get_torrent_file({})".format(filename))
         torrent_file = None
         if (config is None):
             config = get_config()
         
         torrent_dir = config['torrentfiles_location']
-        if os.path.exists(f'{torrent_dir}/{filename}.torrent'):
-            torrent_file = f'{torrent_dir}/{filename}.torrent'
-        elif os.path.exists(f'{torrent_dir}/{filename} [IPT].torrent'):
-            torrent_file = f'{torrent_dir}/{filename} [IPT].torrent'
+        if os.path.exists('{}/{}.torrent'.format(torrent_dir, filename)):
+            torrent_file = '{}/{}.torrent'.format(torrent_dir, filename)
+        elif os.path.exists('{}/{} [IPT].torrent'.format(torrent_dir, filename)):
+            torrent_file = '{}/{} [IPT].torrent'.format(torrent_dir, filename)
         elif (os.path.exists(torrent_dir + '/'+ re.sub('YTS.AM', 'YTS.MX', filename))):
             torrent_file = torrent_dir + '/' + re.sub('YTS.AM', 'YTS.MX', filename)
         else:
@@ -132,7 +132,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 if (re.search("^\.", f)):
                     continue
                 tmp = re.sub(' +$','', re.sub('.torrent$','', re.sub('\[.+\]','', f)))
-                if (re.search(f'^{re.escape(tmp)}', filename, re.IGNORECASE)):
+                if (re.search('^' + re.escape(tmp), filename, re.IGNORECASE)):
                     torrent_file = torrent_dir + '/' + f
                     break
 
@@ -140,12 +140,12 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 #   order
                 match = 0
                 parsed = f.split(' ')
-                if (verbose): print(f"checking {f}")
+                if (verbose): print("checking " + f)
                 for p in parsed:
-                    if re.search(f'{re.escape(p)}', filename):
-                        if (verbose): print(f"  match: {p}")
+                    if re.search(re.escape(p), filename):
+                        if (verbose): print("  match: " + p)
                         match = match + 1
-                if (verbose): print(f"  score: {match/len(parsed)}")
+                if (verbose): print("  score: " + (match/len(parsed)))
                 if (match/len(parsed) >= .70):
                     if (verbose): print("  match!")
                     torrent_file = torrent_dir + '/' + f
@@ -161,17 +161,16 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
             data_dir = deluge_config['move_completed_path']
 
         if (os.path.exists(data_dir + '/' + torrent) is False):
-            raise Exception(f"cannot find '{torrent}'")
+            raise Exception("cannot find '{}'".format(torrent))
         if (os.path.exists(target) is False):
-            raise Exception(f"{target} does not exist)")
+            raise Exception("{} does not exist)".format(target))
 
         info = self.get_info(torrent)
         torrent_file = info[torrent]["torrent_file"]
         if (torrent_file is None or os.path.exists(torrent_file) is False):
-            raise Exception(f"can't find torrent file for {torrent}")
+            raise Exception("can't find torrent file for {}".format(torrent))
         test_dir = tempfile.TemporaryDirectory()
         tmp_torrent_file = test_dir.name + '/' + info[torrent]['id'] + '.torrent'
-        #print(f"moving {torrent_file} to {tmp_torrent_file}") 
         shutil.copyfile(torrent_file, tmp_torrent_file)
 
         self.delete_torrent(torrent)
@@ -179,10 +178,10 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         return self.add_torrent(tmp_torrent_file, path=target)
 
     def pause_all(self):
-        command = f'pause *'
+        command = 'pause *'
         return self._do_command([command])
 
     def resume_all(self):
-        command = f'resume *'
+        command = 'resume *'
         return self._do_command([command])
             
