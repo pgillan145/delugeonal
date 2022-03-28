@@ -139,6 +139,7 @@ def cleanup(args = minorimpact.default_arg_flags):
     for criteria in [{ 'type':'notracker', 'description':"torrents with no tracker" },
                      { 'type':'done', 'description':"torrents marked 'done' by the client" },
                      { 'type':'public_ratio', 'description':"public torrents that have exceeded the minimum ratio" },
+                     { 'type':'max_ratio', 'description':"any torrent that's exceeded the maximum ratio" },
                      { 'type':'public_seedtime', 'description':"public torrents that have served their time", 'target':target_free, 'sort':'seedtime' },
                      { 'type':'public', 'description':"public torrents that have completed", 'target':target_free, 'sort':'size' },
                      { 'type':'private_low_ratio', 'description':"private torrents that have served their time but have a low ratio", 'target':target_free, 'sort':'size' },
@@ -153,8 +154,16 @@ def cleanup(args = minorimpact.default_arg_flags):
 
         description = criteria['description'] if 'description' in criteria else None
         if (args.verbose and description is not None): print("checking for {}".format(description))
-        delete = filter_torrents(criteria)
+        delete = filter_torrents(criteria, args)
         for f in delete:
+            ignore = eval(config['cleanup']['ignore'])
+            imatch = False
+            for i in ignore:
+                m = re.search(i, f)
+                if (m is not None):
+                    imatch = True
+            if (imatch is True):
+                continue
             if (args.verbose): print("deleting {}".format(f))
             info = client.get_info(f)
             if (args.verbose): print("  ratio:{:.1f} seedtime:{:.1f} state:{} size:{}".format(info[f]['ratio'], info[f]['seedtime']/(3600*24), info[f]['state'], minorimpact.disksize(info[f]['size'])))
@@ -270,7 +279,7 @@ def fill(search_string, args = minorimpact.default_arg_flags):
                 if (site.download(results, args = args) > 0):
                     break
 
-def filter_torrents(criteria):
+def filter_torrents(criteria, args = minorimpact.default_arg_flags):
     """Return a list of torrents from the client matching the values in criteria.
     
     Parameters
@@ -301,6 +310,7 @@ def filter_torrents(criteria):
 
     cleanup_ratio = eval(config['cleanup']['ratio'])
     cleanup_seedtime = eval(config['cleanup']['seedtime'])
+    max_ratio = config['cleanup']['max_ratio']
 
     type = criteria['type']
     sort = criteria['sort'] if 'sort' in criteria else 'name'
@@ -316,24 +326,34 @@ def filter_torrents(criteria):
         ratio = info[f]['ratio']
         seedtime = info[f]['seedtime']
 
-        if type == 'notracker':
-            trackerstatus = info[f]['trackerstatus']
-            if tracker is None or trackerstatus == "Error: unregistered torrent" or trackerstatus == 'error':
-                delete.append(f)
-        elif type == 'done':
+        if type == 'done':
+            #if (args.verbose): print("torrents marked 'done' by the client")
             state = info[f]['state'].lower()
             if (state is None or state in ('finished', 'done')):
                 delete.append(f)
                 continue
+        elif type == 'notracker':
+            #if (args.verbose): print("checking for torrents with no tracker")
+            trackerstatus = info[f]['trackerstatus']
+            if tracker is None or trackerstatus == "Error: unregistered torrent" or trackerstatus == 'error':
+                delete.append(f)
+        elif type == 'max_ratio':
+            #if (args.verbose): print("any torrent that's exceeded the maximum ratio")
+            if (ratio > float(max_ratio)):
+                delete.append(f)
+                continue
         elif type == 'private_low_ratio':
+            #if (args.verbose): print("private torrents that have served their time but have a low ratio")
             if tracker not in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime[tracker]
             if (seedtime > (test_seedtime * 60 * 60 * 24) and ratio < float(config['cleanup']['min_keep_ratio'])):
                 delete.append(f)
         elif type == 'public':
+            #if (args.verbose): print("public torrents that have completed")
             if tracker in cleanup_ratio or tracker in cleanup_seedtime: continue
             delete.append(f)
         elif type == 'public_ratio':
+            #if (args.verbose): print("public torrents that have exceeded the minimum ratio")
             #print(info[f])
             #print(cleanup_ratio)
             if tracker in cleanup_ratio: continue
@@ -341,20 +361,24 @@ def filter_torrents(criteria):
             if (ratio >= test_ratio):
                 delete.append(f)
         elif type == 'public_seedtime':
+            #if (args.verbose): print("public torrents that have served their time")
             if tracker in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
             if (seedtime > (test_seedtime * 60 * 60 * 24)):
                 delete.append(f)
         elif type == 'ratio':
+            #if (args.verbose): print("all torrents that have served their ratio")
             test_ratio = cleanup_ratio['default'] if ('default' in cleanup_ratio) else 1.0
             if (tracker in cleanup_ratio): test_ratio = cleanup_ratio[tracker]
             if (ratio >= test_ratio):
                 delete.append(f)
         elif type == "ratio1":
+            #if (args.verbose): print("all torrents with a ratio > 1")
             test_ratio = 1
             if (ratio >= test_ratio):
                 delete.append(f)
         elif type == "seedtime":
+            #if (args.verbose): print("all torrents that have served their time")
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
             if (tracker in cleanup_seedtime): test_seedtime = cleanup_seedtime[tracker]
             if (seedtime > (test_seedtime * 60 * 60 * 24)):
