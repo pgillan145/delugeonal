@@ -110,6 +110,9 @@ def add(directory, args = minorimpact.default_arg_flags):
                 os.remove(directory + '/' + f)
 
 def cleanup(args = minorimpact.default_arg_flags):
+    if ('cleanup' not in config):
+        return
+
     client_config = client.get_config()
     if 'download_location' in client_config: 
         download_dir = client_config['download_location']
@@ -157,21 +160,27 @@ def cleanup(args = minorimpact.default_arg_flags):
         if (args.verbose and description is not None): print("checking for {}".format(description))
         delete = filter_torrents(criteria, args)
         for f in delete:
-            ignore = eval(config['cleanup']['ignore'])
+            ignore = []
+            if ('ignore' in config['cleanup']):
+                ignore = eval(config['cleanup']['ignore'])
             imatch = False
             for i in ignore:
                 m = re.search(i, f)
                 if (m is not None):
                     imatch = True
+                    break
             if (imatch is True):
                 continue
-            if (args.verbose): print("deleting {}".format(f))
+            if (args.verbose): print("{}".format(f))
             info = client.get_info(f)
             if (args.verbose): print("  ratio:{:.1f} seedtime:{:.1f} state:{} size:{}".format(info[f]['ratio'], info[f]['seedtime']/(3600*24), info[f]['state'], minorimpact.disksize(info[f]['size'])))
             if (args.verbose): print("  Tracker: {}/{}".format(info[f]['tracker'], info[f]['trackerstatus']))
             if (args.verbose): print("  file:{}".format(info[f]['data_file']))
             c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(f), echo=True).lower()
-            if (c == 'y'):
+            if (c == 'q'):
+                sys.exit()
+            elif (c == 'y'):
+                if (args.verbose): print("deleting {}".format(f))
                 if (args.dryrun is False):
                     del_torrent = client.delete_torrent(f, remove_data=True)
                     time.sleep(1)
@@ -311,8 +320,6 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
 
     cleanup_ratio = eval(config['cleanup']['ratio'])
     cleanup_seedtime = eval(config['cleanup']['seedtime'])
-    max_ratio = config['cleanup']['max_ratio']
-
     type = criteria['type']
     sort = criteria['sort'] if 'sort' in criteria else 'name'
     delete = []
@@ -339,8 +346,11 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             if tracker is None or trackerstatus == "Error: unregistered torrent" or trackerstatus == 'error':
                 delete.append(f)
         elif type == 'max_ratio':
-            #if (args.verbose): print("any torrent that's exceeded the maximum ratio")
-            if (ratio > float(max_ratio)):
+            if ('max_ratio' not in config['cleanup']):
+                continue
+            max_ratio = config['cleanup']['max_ratio'] 
+
+            if (len(max_ratio) > 0 and re.search('[^0-9\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
                 delete.append(f)
                 continue
         elif type == 'private_low_ratio':
