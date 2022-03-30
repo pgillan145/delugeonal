@@ -3,20 +3,22 @@ import atexit
 from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
-from . import cache, config
+from . import cache
 import os.path
 import pickle
 import re
 import sys
 
 class db(ABC):
-    def __init__(self):
+    match_log_file = None
+
+    def __init__(self, config):
         if ('db' not in cache): cache['db'] = {}
         self.cache = cache['db']
         self.name = "media db"
+        self.config = config
         self.types = []
         atexit.register(self.cleanup)
-        self.match_log_file = None
 
     def __del__(self):
         if (self.match_log_file is not None):
@@ -146,9 +148,9 @@ class db(ABC):
         year
             The 'year' result of the match attempt
         """
-        if (self.match_log_file is None and 'match_debug_log' in config['default'] and config['default']['match_debug_log']):
+        if (self.match_log_file is None and 'match_debug_log' in self.config['default'] and self.config['default']['match_debug_log']):
             try:
-                self.match_log_file = open(config['default']['match_debug_log'], 'a')
+                self.match_log_file = open(self.config['default']['match_debug_log'], 'a')
             except Exception as e:
                 if (args.verbose): print("Can't write match log: {}".format(e))
                 return

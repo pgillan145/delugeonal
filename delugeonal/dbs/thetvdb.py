@@ -9,13 +9,13 @@ import tvdb_v4_official
 THETVDB_API_KEY = '1a2a6b43-c9d2-4077-905e-af520f273dc9'
 
 class MediaDb(delugeonal.mediadb.db):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
         self.name = "TheTVDB"
         self.results_cache = {}
         self.types.append('tv')
 
-        self.tvdb = tvdb_v4_official.TVDB(THETVDB_API_KEY, pin=delugeonal.config['thetvdb']['api_pin'])
+        self.tvdb = tvdb_v4_official.TVDB(THETVDB_API_KEY, pin=self.config['thetvdb']['api_pin'])
 
     def get_by_id(self, id):
         if (id in self.results_cache):

@@ -7,10 +7,9 @@ from plexapi.exceptions import NotFound
 import re
 
 class MediaServer(delugeonal.mediaserver.MediaServer):
-    def __init__(self):
-        super().__init__()
-        self.plex = PlexServer(delugeonal.config['plex']['url'], delugeonal.config['plex']['token'])
-        self.name = "Plex"
+    def __init__(self, config):
+        super().__init__("Plex", config)
+        self.plex = PlexServer(self.config['plex']['url'], self.config['plex']['token'])
 
     def episodes(self, title):
         plex = self.plex

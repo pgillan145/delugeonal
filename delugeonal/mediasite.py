@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import atexit
 from datetime import datetime,timedelta
 import delugeonal
-from . import mediadbs, cache, config, server
+from . import cache, mediadbs
 from dumper import dump
 import minorimpact
 import os.path
@@ -13,24 +13,26 @@ import sys
 from uravo import uravo
 
 class site(ABC):
-    def __init__(self, key, name = None):
+    def __init__(self, key, config, mediaserver = None, name = None):
         atexit.register(self.cleanup)
         if (name is None):
             name = key
         self.site_key = key
         self.name = name
+        self.mediaserver = mediaserver
 
         if ('site' not in cache):
             cache['site'] = {}
         self.cache = cache['site']
         if (self.site_key is None):
             raise Exception("site key is not defined")
-        if (self.site_key) not in delugeonal.config:
-            raise Exception("no [{}] section in config file".format(self.site_key))
-        self.config = delugeonal.config[self.site_key]
+        if (self.site_key not in config):
+            raise Exception("'{}' not in config".format(self.site_key))
 
-        self.rss_url = self.config['rss_url'] if ('rss_url' in self.config) else None
-        self.search_url = self.config['search_url'] if ('search_url' in self.config) else None
+        self.config = config
+
+        self.rss_url = self.config[self.site_key]['rss_url'] if ('rss_url' in self.config[self.site_key]) else None
+        self.search_url = self.config[self.site_key]['search_url'] if ('search_url' in self.config[self.site_key]) else None
 
     def cleanup(self):
         pass
@@ -47,6 +49,7 @@ class site(ABC):
                 str
                     Download url.
         """
+        #print("mediasite.download()")
 
         if (downloads is None):
             raise Exception("downloads is not defined")
@@ -71,8 +74,8 @@ class site(ABC):
             if(args.debug): print(item)
 
             item_title = "{} ({})".format(item['title'], item['year']) if 'year' in item else item['title']
-            codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else config['default']['codec'] 
-            resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else config['default']['resolution'] 
+            codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else self.config['default']['codec'] 
+            resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else self.config['default']['resolution'] 
             if (item['codec'] != codec):
                 if (args.debug): print("invalid codec ({}!={})".format(item['codec'], codec))
                 continue
@@ -87,11 +90,11 @@ class site(ABC):
                     title = db.get_title(item_title, year = True, headless=args.yes)
                     if (title is not None):
                         break
-            if (title is None):
-                uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
-                if (args.verbose): print(" ... FAILED: couldn't find {} title for {}".format(db.name, item_title))
-                continue
-            uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
+                if (title is None):
+                    uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
+                    if (args.verbose): print(" ... FAILED: couldn't find {} title for {}".format(db.name, item_title))
+                    continue
+                uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':"Got {} title for {}".format(db.name, item_title)})
 
             # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
             #   nefarious ends.
@@ -102,18 +105,19 @@ class site(ABC):
                 item['season'] = transformation['season']
                 item['episode'] = transformation['episode']
 
-            exists = False
-            try:
-                exists = server.exists(title, item['season'], item['episode'], args = args)
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(server.name, title)})
-            except Exception as e:
-                if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(server.name, title))
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':"Can't get {} title for '{}'".format(server.name, title)})
-                continue
-            
-            if (exists):
-                if (args.verbose): print(" ... {} S{}E{} already in {}".format(title, item['season'], item['episode'], server.name))
-                continue
+            if (self.mediaserver is not None):
+                exists = False
+                try:
+                    exists = self.mediaserver.exists(title, item['season'], item['episode'], args = args)
+                    uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(self.mediaserver.name, title)})
+                except Exception as e:
+                    if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(self.mediaserver.name, title))
+                    uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':"Can't get {} title for '{}'".format(self.mediaserver.name, title)})
+                    continue
+                
+                if (exists):
+                    if (args.verbose): print(" ... {} S{}E{} already in {}".format(title, item['season'], item['episode'], self.mediaserver.name))
+                    continue
 
             episode_key = "{}|S{}E{}".format(title, item['season'], item['episode'])
             if (episode_key in download_log):
@@ -129,15 +133,15 @@ class site(ABC):
 
             link_url = item['url']
             if args.debug: print("link_url:{}".format(link_url))
-            if (os.path.exists(config['default']['download_dir']) is False):
-                raise Exception(config['default']['download_dir'] + " does not exist.")
+            if (os.path.exists(self.config['default']['download_dir']) is False):
+                raise Exception(self.config['default']['download_dir'] + " does not exist.")
             torrent_filename = re.sub(" ", ".", item['name']) + ".torrent"
-            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="Download {} to {}? (Y/n) ".format(torrent_filename, config['default']['download_dir']), echo=True).lower()
+            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="Download {} to {}? (Y/n) ".format(torrent_filename, self.config['default']['download_dir']), echo=True).lower()
             if (c == 'y'):
-                if args.verbose: print(" ... downloading {} to {}".format(torrent_filename, config['default']['download_dir']))
+                if args.verbose: print(" ... downloading {} to {}".format(torrent_filename, self.config['default']['download_dir']))
                 if (args.dryrun is False):
                     r = requests.get(link_url, stream=True)
-                    with open(config['default']['download_dir'] + '/' + torrent_filename, 'wb') as f:
+                    with open(self.config['default']['download_dir'] + '/' + torrent_filename, 'wb') as f:
                        for chunk in r.iter_content(chunk_size=128):
                           f.write(chunk)
                     self.cache['downloads'][episode_key]['date'] = datetime.now()
@@ -146,10 +150,9 @@ class site(ABC):
         return download_count
         
     def rss(self, args = minorimpact.default_arg_flags):
-        if (args.debug): print("site.rss()")
+        if (args.debug): print("mediasite.rss()")
         if (self.rss_url is None):
             raise Exception("rss_url is not defined")
-
         self.download(self.rss_feed(), args = args)
 
     @abstractmethod

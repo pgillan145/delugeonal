@@ -9,10 +9,12 @@ import minorimpact
 #m = media.Server()
 
 class MediaServer(ABC):
-    def __init__(self):
+    def __init__(self, name, config):
         if ('server' not in cache): cache['server'] = {}
         self.cache = cache['server']
-        self.name = "media server"
+        self.name = name
+        self.config = config
+        self.fuck = "FUCK"
 
     @abstractmethod
     def episodes(self, show):

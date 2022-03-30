@@ -1,5 +1,4 @@
 import delugeonal.torrentclient
-from delugeonal import config, server
 import os
 import re
 import shutil
@@ -8,8 +7,8 @@ import tempfile
 import yaml
 
 class TorrentClient(delugeonal.torrentclient.TorrentClient):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
 
     def add_torrent(self, f, path=None):
         command = 'add "{}"'.format(f)
@@ -26,7 +25,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
     def _do_command(self, command = []):
         if (len(command) == 0):
             return
-        command.insert(0, config['deluge']['deluge_console'])
+        command.insert(0, self.config['deluge']['deluge_console'])
         #print(' '.join(command))
         proc = subprocess.Popen(command, stdout=subprocess.PIPE)
         output  = str(proc.stdout.read(), 'utf-8')

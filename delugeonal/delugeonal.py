@@ -1,5 +1,5 @@
 import argparse
-from . import mediadbs, cache, cache_file, client, config, server, mediasites
+from . import cache, cache_file, client, config, mediadbs, mserver, mediasites
 from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
@@ -9,6 +9,7 @@ import minorimpact.config
 from operator import itemgetter
 import os
 import os.path
+import pickle
 import PTN
 import re
 import shutil
@@ -19,8 +20,8 @@ from uravo import uravo
 import bencode
 
 def main():
-
     load_libraries()
+    #print("cache_file:" + cache_file)
 
     parser = argparse.ArgumentParser(description="delugeonal")
     parser.add_argument('-f', '--force', help = "bypass built-in delays", action='store_true')
@@ -199,12 +200,12 @@ def fill(search_string, args = minorimpact.default_arg_flags):
         The name of the show for which to find missing episodes.
     """
     if (args.debug): print("delugeonal.fill()")
-    show = server.show_name(search_string)
+    show = mserver.show_name(search_string)
     if (show is None):
         raise Exception ("Can't get show for '{}'".format(search_string))
 
     if (args.debug): print("'{}' => '{}'".format(search_string, show))
-    episodes = server.episodes(show)
+    episodes = mserver.episodes(show)
     total_episodes = None
     mediadb = None
     for db in mediadbs:
@@ -387,35 +388,41 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
 
 
 def load_libraries():
-    global config, cache, client, mediadbs, mediasites, server
+    global cache, client, config, mediadbs, mserver, mediasites
 
     config = minorimpact.config.getConfig(script_name='delugeonal')
     if ('cache_file' in config['default']):
         cache_file = config['default']['cache_file']
         if (os.path.exists(cache_file)):
+            #print("loading cache data from " + cache_file)
             with open(cache_file, "rb") as f:
                 cache = pickle.load(f)
 
     mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config['default'] and config['default']['mediadblibs'] is not None else None
     if (mediadblibs is not None and len(mediadblibs)>0):
         for mediadblib in (mediadblibs):
-       	    db = importlib.import_module(mediadblib, __name__)
+       	    #db = importlib.import_module(mediadblib, __name__)
+       	    db = importlib.import_module(mediadblib, 'delugeonal')
             try:
-                mediadbs.append(db.MediaDb())
+                mediadbs.append(db.MediaDb(config))
             except Exception as e:
                 print(e)
 
     mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
     if (mediaserverlib is not None):
-        mediaserver = importlib.import_module(mediaserverlib, __name__)
-        server = mediaserver.MediaServer()
+        #mediaserver = importlib.import_module(mediaserverlib, __name__)
+        server = importlib.import_module(mediaserverlib, 'delugeonal')
+        mserver = server.MediaServer(config)
 
     mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
     if (mediasitelibs is not None and len(mediasitelibs) > 0):
         for mediasitelib in (mediasitelibs):
             #site = importlib.import_module(mediasitelib, __name__)
             site = importlib.import_module(mediasitelib, 'delugeonal')
-            mediasites.append(site.MediaSite())
+            try:
+                mediasites.append(site.MediaSite(config, mediaserver = mserver))
+            except Exception as e:
+                print(e)
 
     torrentclientlib = config['default']['torrentclientlib'] if 'torrentclientlib' in config['default'] and config['default']['torrentclientlib'] is not None else None
     if (torrentclientlib is not None):
@@ -688,7 +695,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             if (args.verbose): print("moving {}.{} to {}.{}".format(basename, extension, new_basename, extension))
             if (args.dryrun == False):
                     shutil.move(filename, movie_dir + '/' + new_basename + '.' + extension)
-                    uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {basename}.{extension} to {movie_dir}/{new_basename}.{extension}".format(basename, extension, movie_dir, new_basename, extension))
+                    uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {}.{} to {}/{}.{}".format(basename, extension, movie_dir, new_basename, extension))
             if (os.path.exists(dirname + '/' + basename + '.srt')):
                 if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, movie_dir, new_basename))
                 if (args.dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + new_basename + '.en.srt')
@@ -701,7 +708,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     return
 
 def rss(args = minorimpact.default_arg_flags):
-    if (args.debug): print(delugeonal.rss())
+    if (args.debug): print("delugeonal.rss()")
     for site in (mediasites):
         try:
             site.rss(args = args)
