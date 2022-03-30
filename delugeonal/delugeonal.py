@@ -79,6 +79,9 @@ def add(directory, args = minorimpact.default_arg_flags):
             m = open(directory + '/' + f, 'rb')
             torrent_data = m.read()
             t = bencode.decode(torrent_data)
+            if (t is None or 'info' not in t or 'files' not in t['info']):
+                if (args.verbose): print("can't gat a list of files from {}".format(f))
+                continue
             for torrent_file in t['info']['files']:
                 total_size = total_size + int(torrent_file['length'])
             if (args.verbose): print("{}\nsize:{}".format(f, minorimpact.disksize(total_size, units='b')))
