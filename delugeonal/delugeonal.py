@@ -124,6 +124,8 @@ def cleanup(args = minorimpact.default_arg_flags):
 
     total, used, free = shutil.disk_usage('/')
     target_free = total * .05
+    if (args.force is True):
+        target_free = total
     if (args.verbose): print("free space:{}/{}".format(minorimpact.disksize(free, units='b'),minorimpact.disksize(target_free, units='b')))
 
     # Figure out how much space we *actually* need to free up based on what's waiting in the download queue.
@@ -360,7 +362,9 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             #if (args.verbose): print("private torrents that have served their time but have a low ratio")
             if tracker not in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime[tracker]
-            if (seedtime > (test_seedtime * 60 * 60 * 24) and ratio < float(config['cleanup']['min_keep_ratio'])):
+            test_seedtime = test_seedtime * 60 * 60 * 24
+            #print("{}({}):{} {} {}".format(f, tracker, seedtime, ratio, test_seedtime))
+            if (seedtime > test_seedtime and ratio < float(config['cleanup']['min_keep_ratio'])):
                 delete.append(f)
         elif type == 'public':
             #if (args.verbose): print("public torrents that have completed")
@@ -378,7 +382,8 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             #if (args.verbose): print("public torrents that have served their time")
             if tracker in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
-            if (seedtime > (test_seedtime * 60 * 60 * 24)):
+            test_seedtime = test_seedtime * 60 * 60 * 24
+            if (seedtime > test_seedtime):
                 delete.append(f)
         elif type == 'ratio':
             #if (args.verbose): print("all torrents that have served their ratio")
@@ -395,7 +400,9 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             #if (args.verbose): print("all torrents that have served their time")
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
             if (tracker in cleanup_seedtime): test_seedtime = cleanup_seedtime[tracker]
-            if (seedtime > (test_seedtime * 60 * 60 * 24)):
+            test_seedtime = test_seedtime * 60 * 60 * 24
+            #print("{}({}):{} {}".format(f, tracker, seedtime, test_seedtime))
+            if (seedtime >= test_seedtime):
                 delete.append(f)
     return delete
 
