@@ -33,5 +33,15 @@ class TestUtils(unittest.TestCase):
             feed = site.rss_feed()
             self.assertTrue(len(feed) > 0)
 
+    def test_003_mediadb(self):
+        delugeonal.delugeonal.load_libraries()
+        for db in (delugeonal.delugeonal.mediadbs):
+            if (db.istype('movie')):
+                test_title = db.get_title('Back to the Future', headless = True, year = True)
+                self.assertEqual(test_title, 'Back to the Future (1985)')
+            elif (db.istype('tv')):
+                test_title = db.get_title('Seinfeld', headless = True, year = True)
+                self.assertEqual(test_title, 'Seinfeld (1989)')
+
 if __name__ == '__main__':
     unittest.main()
