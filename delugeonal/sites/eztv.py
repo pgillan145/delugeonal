@@ -24,7 +24,7 @@ class MediaSite(delugeonal.mediasite.site):
                 if (name is None or name == '' or link_url is None or link_url == ''):
                     continue
 
-                items.append((name, link_url))
+                items.append({ 'name': name, 'url': link_url})
         return items
 
     def search_site(self, search_string):
@@ -74,7 +74,7 @@ class MediaSite(delugeonal.mediasite.site):
         items = []
         # Return the results in order from highest seeded to lowest.
         for name, url, seeds in sorted(unsorted, key=lambda x: int(x[2]), reverse = True):
-            items.append((name,url))
+            items.append({ 'name': name, 'url': url})
 
         return items
 

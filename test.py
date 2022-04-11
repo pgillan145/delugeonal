@@ -32,6 +32,8 @@ class TestUtils(unittest.TestCase):
         for site in (delugeonal.delugeonal.mediasites):
             feed = site.rss_feed()
             self.assertTrue(len(feed) > 0)
+            test_item = feed[0]
+            self.assertIsInstance(test_item, dict)
 
     def test_003_mediadb(self):
         delugeonal.delugeonal.load_libraries()

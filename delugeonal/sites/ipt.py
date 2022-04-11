@@ -35,7 +35,7 @@ class MediaSite(delugeonal.mediasite.site):
             if (name is None or name == '' or link_url is None or link_url == ''):
                 continue
             # TODO: Change this so it returns a dict, rather than a tuple
-            items.append((name, link_url))
+            items.append({ 'name': name, 'url': link_url})
         return items
 
     def search_site(self, search_string):

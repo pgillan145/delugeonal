@@ -215,20 +215,20 @@ def download(downloads, args = minorimpact.default_arg_flags):
     Parameters
     ----------
     list
-        tuple
-            str
+       dict
+            name : str
                 Name of the torrent file.
-            str
+            url : str
                 Download url.
     """
-    # TODO: Make this take a dict rather than a tuple.
-
     if (downloads is None):
         raise Exception("downloads is not defined")
 
     download_log = []
     download_count = 0
-    for name, url in downloads:
+    for d in downloads:
+        name = d['name']
+        url = d['url']
         parsed = PTN.parse(name)
 
         if ('codec' not in parsed):
@@ -411,7 +411,7 @@ def fill(search_string, args = minorimpact.default_arg_flags):
         for site in (mediasites):
             results = site.search(search_string, download = False, args = args)
             if (results is not None and len(results) > 0):
-                if (site.download(results, args = args) > 0):
+                if (download(results, args = args) > 0):
                     break
 
 def filter_torrents(criteria, args = minorimpact.default_arg_flags):
