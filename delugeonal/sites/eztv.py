@@ -38,10 +38,10 @@ class MediaSite(delugeonal.mediasite.site):
         Returns
         -------
         list
-            tuple
-                str
+            dict
+                name : str
                     The name of the torrent.
-                str
+                url : str
                     The url.
         """
         
@@ -52,7 +52,7 @@ class MediaSite(delugeonal.mediasite.site):
         url = search_url + str(search_string)
         r = requests.get(url)
         #print(r.text)
-        for m in re.findall('<a href="(https://[^\n]+?([^/]+)\.torrent)".*?<td .*?<td .*?<td .+?>([^<]+)<', r.text, flags=re.DOTALL):
+        for m in re.findall(r'<a href="(https://[^\n]+?([^/]+)\.torrent)".*?<td .*?<td .*?<td .+?>([^<]+)<', r.text, flags=re.DOTALL):
             url = m[0]
             name = urllib.parse.unquote_plus(m[1])
             seeds = m[2]

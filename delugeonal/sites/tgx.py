@@ -14,10 +14,10 @@ class MediaSite(delugeonal.mediasite.site):
         Returns
         -------
         list
-            tuple
-                str
+            dict
+                name : str
                     The name of the torrent.
-                str
+                url : str
                     The download url.
         """
         items = []
@@ -48,10 +48,10 @@ class MediaSite(delugeonal.mediasite.site):
         Returns
         -------
         list
-           tuple 
-                str
-                    The torrent name.
-                str
+            dict
+                name : str
+                    The name of the torrent.
+                url : str
                     The download url.
         """
         if (search_string is None):

@@ -1,3 +1,4 @@
+import datetime
 import delugeonal.mediasite
 import re
 import requests
@@ -24,9 +25,8 @@ class MediaSite(delugeonal.mediasite.site):
 
         for item in root.findall('.//item'):
             name = item.find('title').text
-            # TODO: Turn pubdate into a standard date format and add it to the output
             # <pubDate>Mon, 14 Mar 2022 03:02:25 +0000</pubDate>
-            # date = item.find('pubDate').text
+            date = datetime.datetime.strptime(item.find('pubDate').text, '%a, %d %b %Y %H:%M:%S %z')
             # TODO: Parse size and 'category' from the description and add it to the output
             # <description>810 MB; TV/Web-DL</description>
             # description = item.find('description').text
@@ -35,7 +35,7 @@ class MediaSite(delugeonal.mediasite.site):
             if (name is None or name == '' or link_url is None or link_url == ''):
                 continue
             # TODO: Change this so it returns a dict, rather than a tuple
-            items.append({ 'name': name, 'url': link_url})
+            items.append({ 'name': name, 'url': link_url, 'date': date })
         return items
 
     def search_site(self, search_string):

@@ -220,6 +220,8 @@ def download(downloads, args = minorimpact.default_arg_flags):
                 Name of the torrent file.
             url : str
                 Download url.
+            date : datetime
+                torrent file date. Optional.
     """
     if (downloads is None):
         raise Exception("downloads is not defined")
@@ -229,6 +231,9 @@ def download(downloads, args = minorimpact.default_arg_flags):
     for d in downloads:
         name = d['name']
         url = d['url']
+        date = d['date']
+        #print(name + " (" + url + "):" + str(date))
+
         parsed = PTN.parse(name)
 
         if ('codec' not in parsed):

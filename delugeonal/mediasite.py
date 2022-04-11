@@ -45,6 +45,8 @@ class site(ABC):
                     The name of the torrent.
                 url : str
                     The download url.
+                date : datetime
+                    Torrent file date.  Optional.
         """
         pass
 
@@ -72,6 +74,8 @@ class site(ABC):
                     The name of the torrent.
                 url : str
                     The download url.
+                date : datetime
+                    Torrent file date.  Optional.
         """
         pass
 
