@@ -29,10 +29,11 @@ class site(ABC):
         if (self.site_key not in config):
             raise Exception("'{}' not in config".format(self.site_key))
 
-        self.config = config
+        self.full_config = config
+        self.config = config[self.site_key]
 
-        self.rss_url = self.config[self.site_key]['rss_url'] if ('rss_url' in self.config[self.site_key]) else None
-        self.search_url = self.config[self.site_key]['search_url'] if ('search_url' in self.config[self.site_key]) else None
+        self.rss_url = self.config['rss_url'] if ('rss_url' in self.config) else None
+        self.search_url = self.config['search_url'] if ('search_url' in self.config) else None
 
     def cleanup(self):
         pass
@@ -49,6 +50,7 @@ class site(ABC):
                 str
                     Download url.
         """
+        # TODO: Make this take a dict rather than a tuple.
         #print("mediasite.download()")
 
         if (downloads is None):
@@ -74,8 +76,8 @@ class site(ABC):
             if(args.debug): print(item)
 
             item_title = "{} ({})".format(item['title'], item['year']) if 'year' in item else item['title']
-            codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else self.config['default']['codec'] 
-            resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else self.config['default']['resolution'] 
+            codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else self.full_config['default']['codec'] 
+            resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else self.full_config['default']['resolution'] 
             if (item['codec'] != codec):
                 if (args.debug): print("invalid codec ({}!={})".format(item['codec'], codec))
                 continue
@@ -133,15 +135,15 @@ class site(ABC):
 
             link_url = item['url']
             if args.debug: print("link_url:{}".format(link_url))
-            if (os.path.exists(self.config['default']['download_dir']) is False):
-                raise Exception(self.config['default']['download_dir'] + " does not exist.")
+            if (os.path.exists(self.full_config['default']['download_dir']) is False):
+                raise Exception(self.full_config['default']['download_dir'] + " does not exist.")
             torrent_filename = re.sub(" ", ".", item['name']) + ".torrent"
-            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="Download {} to {}? (Y/n) ".format(torrent_filename, self.config['default']['download_dir']), echo=True).lower()
+            c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="Download {} to {}? (Y/n) ".format(torrent_filename, self.full_config['default']['download_dir']), echo=True).lower()
             if (c == 'y'):
-                if args.verbose: print(" ... downloading {} to {}".format(torrent_filename, self.config['default']['download_dir']))
+                if args.verbose: print(" ... downloading {} to {}".format(torrent_filename, self.full_config['default']['download_dir']))
                 if (args.dryrun is False):
                     r = requests.get(link_url, stream=True)
-                    with open(self.config['default']['download_dir'] + '/' + torrent_filename, 'wb') as f:
+                    with open(self.full_config['default']['download_dir'] + '/' + torrent_filename, 'wb') as f:
                        for chunk in r.iter_content(chunk_size=128):
                           f.write(chunk)
                     self.cache['downloads'][episode_key]['date'] = datetime.now()
