@@ -5,9 +5,8 @@ import xml.etree.ElementTree as ET
 
 
 class MediaSite(delugeonal.mediasite.site):
-    def __init__(self, config, mediaserver = None):
-        super().__init__('ipt', config, mediaserver = mediaserver, name = 'IPTorrents')
-
+    def __init__(self, config):
+        super().__init__('ipt', config, name = 'IPTorrents')
 
     # return [{name, title, season, episode, url, codec, resolution}]
     def rss_feed(self):

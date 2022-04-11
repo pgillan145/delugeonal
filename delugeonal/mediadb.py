@@ -3,7 +3,6 @@ import atexit
 from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
-from . import cache
 import os.path
 import pickle
 import re
@@ -12,12 +11,13 @@ import sys
 class db(ABC):
     match_log_file = None
 
-    def __init__(self, config):
+    def __init__(self, config, cache = {}):
         if ('db' not in cache): cache['db'] = {}
         self.cache = cache['db']
         self.name = "media db"
         self.config = config
         self.types = []
+        # TODO: Figure out what I was going to do with this
         atexit.register(self.cleanup)
 
     def __del__(self):
@@ -91,7 +91,9 @@ class db(ABC):
                     output = "{:-2d} {} (match:{})".format(i, t, fuzz.ratio(t.lower(),search_title.lower()))
                     print(output)
                 pick = input("Choose a title/enter id/enter a name manually: ").rstrip()
-                if (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
+                if (pick == 'q'):
+                    sys.exit()
+                elif (re.search("^\d+$", pick) and int(pick) > 0 and int(pick) <= len(titles)):
                     pick_title = items[int(pick) - 1]
                     match = re.search(" \((\d\d\d\d)\)$", pick_title)
                     if (match):
@@ -113,7 +115,6 @@ class db(ABC):
                         pick_title = re.sub(" \(\d\d\d\d\)$", "", pick_title)
                     title = pick_title
                     title_year = pick_year
-
 
         if (title is not None):
             if (name not in self.cache):

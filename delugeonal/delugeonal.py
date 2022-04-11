@@ -1,5 +1,5 @@
 import argparse
-from . import cache, cache_file, client, config, mediadbs, mserver, mediasites
+import atexit
 from datetime import datetime
 from dumper import dump
 from fuzzywuzzy import fuzz
@@ -19,8 +19,15 @@ from uravo import uravo
 #from torrentool.api import Torrent
 import bencode
 
+cache = {}
+client = None
+config = {}
+mediadbs = []
+mserver = None
+mediasites = []
+
 def main():
-    load_libraries()
+    setup()
     #print("cache_file:" + cache_file)
 
     parser = argparse.ArgumentParser(description="delugeonal")
@@ -202,6 +209,119 @@ def clear_cache(args = minorimpact.default_arg_flags):
     [cache.pop(key) for key in keys]
     if (args.verbose): print(" ... DONE")
 
+def download(downloads, args = minorimpact.default_arg_flags):
+    """Download torrent files.
+
+    Parameters
+    ----------
+    list
+        tuple
+            str
+                Name of the torrent file.
+            str
+                Download url.
+    """
+    # TODO: Make this take a dict rather than a tuple.
+
+    if (downloads is None):
+        raise Exception("downloads is not defined")
+
+    download_log = []
+    download_count = 0
+    for name, url in downloads:
+        parsed = PTN.parse(name)
+
+        if ('codec' not in parsed):
+            if (args.debug): print("couldn't parse codec from {}".format(name))
+            continue
+        if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
+            if (args.debug): print("couldn't parse title, season or episode from {}".format(name))
+            continue
+        if ('resolution' not in parsed):
+            # I have reservations about this.
+            parsed['resolution'] = '480p'
+        if (args.debug): print(parsed)
+
+        item = { 'name':name, 'title':parsed['title'], 'season':parsed['season'], 'episode':parsed['episode'], 'url':url, 'codec':parsed['codec'], 'resolution':parsed['resolution']}
+        if(args.debug): print(item)
+
+        item_title = "{} ({})".format(item['title'], item['year']) if 'year' in item else item['title']
+        codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else config['default']['codec'] 
+        resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else config['default']['resolution'] 
+        if (item['codec'] != codec):
+            if (args.debug): print("invalid codec ({}!={})".format(item['codec'], codec))
+            continue
+        if (item['resolution'] != resolution):
+            if (args.debug): print("invalid resolution ({}!={})".format(item['resolution'], resolution))
+            continue
+
+        if (args.verbose): print("processing {} S{}E{}:".format(item_title, item['season'], item['episode']))
+        title = None
+        for db in mediadbs:
+            if (db.istype('tv')):
+                title = db.get_title(item_title, year = True, headless=args.yes)
+                if (title is not None):
+                    break
+
+            if (title is None):
+                uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
+                if (args.verbose): print(" ... FAILED: couldn't find {} title for {}".format(db.name, item_title))
+                continue
+            uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':"Got {} title for {}".format(db.name, item_title)})
+
+        # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
+        #   nefarious ends.
+        transformation = transform(title, item['season'], item['episode'])
+        if (transformation is not None):
+            if (args.verbose): print(" ... applying transformation: '{}'=>'{}', season {}=>{}, episode {}=>{}".format(title, transformation['title'], item['season'], transformation['season'], item['episode'], transformation['episode']))
+            title = transformation['title']
+            item['season'] = transformation['season']
+            item['episode'] = transformation['episode']
+
+        if (mserver is not None):
+            exists = False
+            try:
+                exists = mserver.exists(title, item['season'], item['episode'], args = args)
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(mserver.name, title)})
+            except Exception as e:
+                if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(mserver.name, title))
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':"Can't get {} title for '{}'".format(mserver.name, title)})
+                continue
+
+            if (exists):
+                if (args.verbose): print(" ... {} S{}E{} already in {}".format(title, item['season'], item['episode'], mserver.name))
+                continue
+
+        episode_key = "{}|S{}E{}".format(title, item['season'], item['episode'])
+        if (episode_key in download_log):
+            # Yes, download_log *is* redundant (and a shitty hack), but in the case of --dryrun I don't want to add the download to the permanent cache, 
+            # but I *also* don't want to ask the user to download multiple copies of the same torrent.
+            continue
+        if ('downloads' not in cache): cache['downloads'] = {}
+        if (episode_key not in cache['downloads']):
+            cache['downloads'][episode_key] = { 'item':item }
+        elif (args.force is False and 'date' in cache['downloads'][episode_key] and cache['downloads'][episode_key]['date'] > datetime.now() - timedelta(hours=1)):
+            if (args.verbose): print(" ... already downloaded within the last hour")
+            continue
+
+        link_url = item['url']
+        if args.debug: print("link_url:{}".format(link_url))
+        if (os.path.exists(config['default']['download_dir']) is False):
+            raise Exception(config['default']['download_dir'] + " does not exist.")
+        torrent_filename = re.sub(" ", ".", item['name']) + ".torrent"
+        c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="Download {} to {}? (Y/n) ".format(torrent_filename, config['default']['download_dir']), echo=True).lower()
+        if (c == 'y'):
+            if args.verbose: print(" ... downloading {} to {}".format(torrent_filename, config['default']['download_dir']))
+            if (args.dryrun is False):
+                r = requests.get(link_url, stream=True)
+                with open(config['default']['download_dir'] + '/' + torrent_filename, 'wb') as f:
+                   for chunk in r.iter_content(chunk_size=128):
+                      f.write(chunk)
+                cache['downloads'][episode_key]['date'] = datetime.now()
+            download_log.append(episode_key)
+            download_count += 1
+    return download_count
+
 def dump_cache(args = minorimpact.default_arg_flags):
     dump(cache)
 
@@ -296,7 +416,7 @@ def fill(search_string, args = minorimpact.default_arg_flags):
 
 def filter_torrents(criteria, args = minorimpact.default_arg_flags):
     """Return a list of torrents from the client matching the values in criteria.
-    
+
     Parameters
     ----------
     criteria : dict
@@ -306,7 +426,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             'sort': sort torrents by this field, and process them in reverse order.
             'target': The desired amount of free disk space on the system.  If target is greater than 0, filter torrents will stop analyzing
                 once this value is reached.
-            
+
     Returns
     -------
     list
@@ -408,47 +528,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
 
 
 def load_libraries():
-    global cache, client, config, mediadbs, mserver, mediasites
-
-    config = minorimpact.config.getConfig(script_name='delugeonal')
-    if ('cache_file' in config['default']):
-        cache_file = config['default']['cache_file']
-        if (os.path.exists(cache_file)):
-            #print("loading cache data from " + cache_file)
-            with open(cache_file, "rb") as f:
-                cache = pickle.load(f)
-
-    mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config['default'] and config['default']['mediadblibs'] is not None else None
-    if (mediadblibs is not None and len(mediadblibs)>0):
-        for mediadblib in (mediadblibs):
-       	    #db = importlib.import_module(mediadblib, __name__)
-       	    db = importlib.import_module(mediadblib, 'delugeonal')
-            try:
-                mediadbs.append(db.MediaDb(config))
-            except Exception as e:
-                print(e)
-
-    mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
-    if (mediaserverlib is not None):
-        #mediaserver = importlib.import_module(mediaserverlib, __name__)
-        server = importlib.import_module(mediaserverlib, 'delugeonal')
-        mserver = server.MediaServer(config)
-
-    mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
-    if (mediasitelibs is not None and len(mediasitelibs) > 0):
-        for mediasitelib in (mediasitelibs):
-            #site = importlib.import_module(mediasitelib, __name__)
-            site = importlib.import_module(mediasitelib, 'delugeonal')
-            try:
-                mediasites.append(site.MediaSite(config, mediaserver = mserver))
-            except Exception as e:
-                print(e)
-
-    torrentclientlib = config['default']['torrentclientlib'] if 'torrentclientlib' in config['default'] and config['default']['torrentclientlib'] is not None else None
-    if (torrentclientlib is not None):
-        #torrentclient = importlib.import_module(torrentclientlib, __name__)
-        torrentclient = importlib.import_module(torrentclientlib, 'delugeonal')
-        client = torrentclient.TorrentClient(config)
+    setup()
 
 def media_files(dirname, video_formats = ['mp4', 'mkv'], count = 0):
     video_regex = '|'.join(video_formats)
@@ -668,7 +748,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
         if mediadb is None:
             raise Exception("Can't find a mediadb object.")
-        
+
         for media_dir in media_dirs:
             if (os.path.exists(media_dir + '/' + config['default']['movie_dir'] + '/' + parsed_title)):
                 title = parsed_title
@@ -731,7 +811,7 @@ def rss(args = minorimpact.default_arg_flags):
     if (args.debug): print("delugeonal.rss()")
     for site in (mediasites):
         try:
-            site.rss(args = args)
+            download(site.rss_feed(), args = args)
         except Exception as e:
             print(e)
 
@@ -741,16 +821,58 @@ def search(search_string, args = minorimpact.default_arg_flags):
     for site in (mediasites):
         site.search(search_string, args = args)
 
+def setup():
+    global cache, client, config, mediadbs, mserver, mediasites
+
+    config = minorimpact.config.getConfig(script_name='delugeonal')
+    if ('cache_file' in config['default']):
+        cache_file = config['default']['cache_file']
+        if (os.path.exists(cache_file)):
+            #print("loading cache data from " + cache_file)
+            with open(cache_file, "rb") as f:
+                cache = pickle.load(f)
+
+    mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config['default'] and config['default']['mediadblibs'] is not None else None
+    if (mediadblibs is not None and len(mediadblibs)>0):
+        for mediadblib in (mediadblibs):
+       	    #db = importlib.import_module(mediadblib, __name__)
+       	    db = importlib.import_module(mediadblib, 'delugeonal')
+            try:
+                mediadbs.append(db.MediaDb(config, cache = cache))
+            except Exception as e:
+                print(e)
+
+    mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
+    if (mediaserverlib is not None):
+        #mediaserver = importlib.import_module(mediaserverlib, __name__)
+        server = importlib.import_module(mediaserverlib, 'delugeonal')
+        mserver = server.MediaServer(config, cache = cache)
+
+    mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
+    if (mediasitelibs is not None and len(mediasitelibs) > 0):
+        for mediasitelib in (mediasitelibs):
+            #site = importlib.import_module(mediasitelib, __name__)
+            site = importlib.import_module(mediasitelib, 'delugeonal')
+            try:
+                mediasites.append(site.MediaSite(config))
+            except Exception as e:
+                print(e)
+
+    torrentclientlib = config['default']['torrentclientlib'] if 'torrentclientlib' in config['default'] and config['default']['torrentclientlib'] is not None else None
+    if (torrentclientlib is not None):
+        #torrentclient = importlib.import_module(torrentclientlib, __name__)
+        torrentclient = importlib.import_module(torrentclientlib, 'delugeonal')
+        client = torrentclient.TorrentClient(config)
+
 def torrents(args = minorimpact.default_arg_flags):
     info = client.get_info(verbose = args.verbose)
     for f in info:
         print("{}: ratio:{}, size:{}, seedtime:{}, tracker:{}({})".format(f, info[f]['ratio'], info[f]['size'], info[f]['seedtime'], info[f]['tracker'], info[f]['trackerstatus']))
         #print(info[f]['trackers'])
 
-    
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])
-    
+
     if title in transforms:
         for transform in transforms[title]:
             criteria = []
@@ -788,4 +910,15 @@ def transform(title, season, episode):
                 return transformation
 
     return None
+
+def write_cache():
+    if ('cache_file' in config['default']):
+        cache_file = config['default']['cache_file']
+        #print("write_cache(): cache_file = '" + cache_file + "'")
+        if (os.path.exists(cache_file)):
+            #print("writing cache_file:" + cache_file)
+            with open(cache_file, "wb") as f:
+                pickle.dump(cache, f)
+
+atexit.register(write_cache)
 

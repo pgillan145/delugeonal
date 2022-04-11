@@ -7,8 +7,8 @@ from plexapi.exceptions import NotFound
 import re
 
 class MediaServer(delugeonal.mediaserver.MediaServer):
-    def __init__(self, config):
-        super().__init__("Plex", config)
+    def __init__(self, config, cache = {}):
+        super().__init__("Plex", config, cache = cache)
         self.plex = PlexServer(self.config['plex']['url'], self.config['plex']['token'])
 
     def episodes(self, title):
@@ -39,8 +39,8 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
         if (search_string not in self.cache): self.cache[search_string] = {}
 
         show = None
-        if (re.search(" \(\d\d\d\d\)$", search_string) is not None):
-            test_search_string = re.sub(" \(\d\d\d\d\)$", "", search_string)
+        if (re.search(r' \(\d\d\d\d\)$', search_string) is not None):
+            test_search_string = re.sub(r' \(\d\d\d\d\)$', '', search_string)
             try:
                 show = self.plex.library.section('TV Shows').get(test_search_string)
                 return show

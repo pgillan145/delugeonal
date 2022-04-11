@@ -5,8 +5,8 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 
 class MediaSite(delugeonal.mediasite.site):
-    def __init__(self, config, mediaserver = None):
-        super().__init__('tgx', config, mediaserver = mediaserver, name = 'TorrentGalaxy')
+    def __init__(self, config):
+        super().__init__('tgx', config, name = 'TorrentGalaxy')
 
     def rss_feed(self):
         """Returns a list of dicts containing information about each torrent item available on the rss feed.

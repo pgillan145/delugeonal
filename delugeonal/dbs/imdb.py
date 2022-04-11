@@ -8,8 +8,8 @@ import sys
 
 
 class MediaDb(delugeonal.mediadb.db):
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, cache = {}):
+        super().__init__(config, cache = cache)
         self.name = "IMDb"
         self.types.append('movie')
         self.types.append('tv')

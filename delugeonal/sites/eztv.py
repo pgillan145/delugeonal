@@ -6,8 +6,8 @@ import xml.etree.ElementTree as ET
 
 
 class MediaSite(delugeonal.mediasite.site):
-    def __init__(self, config, mediaserver = None):
-        super().__init__('eztv', config, mediaserver = mediaserver, name = 'EZTV')
+    def __init__(self, config):
+        super().__init__('eztv', config, name = 'EZTV')
 
     # return [{name, title, season, episode, url, codec, resolution}]
     def rss_feed(self):

@@ -9,8 +9,8 @@ import tvdb_v4_official
 THETVDB_API_KEY = '1a2a6b43-c9d2-4077-905e-af520f273dc9'
 
 class MediaDb(delugeonal.mediadb.db):
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, cache = {}):
+        super().__init__(config, cache = cache)
         self.name = "TheTVDB"
         self.results_cache = {}
         self.types.append('tv')

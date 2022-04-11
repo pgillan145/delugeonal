@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from . import cache
 import minorimpact
 #import importlib
 #medialib = config.medialib if hasattr(config, 'medialib') and config.medialib is not None else None
@@ -9,7 +8,7 @@ import minorimpact
 #m = media.Server()
 
 class MediaServer(ABC):
-    def __init__(self, name, config):
+    def __init__(self, name, config, cache = {}):
         if ('server' not in cache): cache['server'] = {}
         self.cache = cache['server']
         self.name = name
