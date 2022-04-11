@@ -13,7 +13,7 @@ class MediaSite(delugeonal.mediasite.site):
     def rss_feed(self):
         """Retrieve the rss feed for this site and return a list of torrents."""
         items = []
-        r = requests.get(self.rss_url)
+        r = requests.get('https://eztv.re/ezrss.xml')
         root = ET.fromstring(r.text)
 
         for item in root.findall('.//item'):
@@ -46,14 +46,13 @@ class MediaSite(delugeonal.mediasite.site):
         """
         
         # TODO: Order by seeds, and take the highest.
-        if (self.search_url is None):
-            raise Exception("search_url is not defined")
+        search_url = 'https://eztv.re/search/'
 
         unsorted = []
-        url = self.search_url + str(search_string)
+        url = search_url + str(search_string)
         r = requests.get(url)
         #print(r.text)
-        for m in re.findall('<a href="(https:\/\/[^\n]+?([^/]+)\.torrent)".*?<td .*?<td .*?<td .+?>([^<]+)<', r.text, flags=re.DOTALL):
+        for m in re.findall('<a href="(https://[^\n]+?([^/]+)\.torrent)".*?<td .*?<td .*?<td .+?>([^<]+)<', r.text, flags=re.DOTALL):
             url = m[0]
             name = urllib.parse.unquote_plus(m[1])
             seeds = m[2]

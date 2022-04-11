@@ -153,8 +153,6 @@ class site(ABC):
         
     def rss(self, args = minorimpact.default_arg_flags):
         if (args.debug): print("mediasite.rss()")
-        if (self.rss_url is None):
-            raise Exception("rss_url is not defined")
         self.download(self.rss_feed(), args = args)
 
     @abstractmethod

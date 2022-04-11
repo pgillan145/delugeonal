@@ -21,7 +21,8 @@ class MediaSite(delugeonal.mediasite.site):
                     The download url.
         """
         items = []
-        r = requests.get(self.rss_url)
+        rss_url = 'https://torrentgalaxy.to/rss'
+        r = requests.get(rss_url)
         root = ET.fromstring(r.text)
 
         for item in root.findall('.//item'):
@@ -56,7 +57,7 @@ class MediaSite(delugeonal.mediasite.site):
         if (search_string is None):
             raise Exception("Invalid search string")
 
-        search_url = self.search_url + "/" + str(search_string)
+        search_url = 'https://torrentgalaxy.to/torrents.php?search/' + str(search_string)
         r = requests.get(search_url)
         unsorted = []
         for m in re.findall("<a href='(https://[^/]+/get/[a-f0-9]{40}/([^/']+))'.*<span title='Seeders.*?<b>(.+?)</b>", r.text):
