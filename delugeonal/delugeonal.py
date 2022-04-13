@@ -12,6 +12,7 @@ import os.path
 import pickle
 import PTN
 import re
+import requests
 import shutil
 import sys
 import time
