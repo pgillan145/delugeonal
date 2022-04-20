@@ -252,8 +252,21 @@ def download(downloads, args = minorimpact.default_arg_flags):
         if(args.debug): print(item)
 
         item_title = "{} ({})".format(item['title'], item['year']) if 'year' in item else item['title']
-        codec =  args.codec[0] if hasattr(args, 'codec') and args.codec is not None else config['default']['codec'] 
-        resolution =  args.resolution[0] if hasattr(args, 'resolution') and args.resolution is not None else config['default']['resolution'] 
+
+        codec =  config['default']['codec']
+        resolution =  config['default']['resolution']
+        if ('download_overrides' in config['default']):
+            overrides = eval(config['default']['download_overrides'])
+            for regex in overrides.keys():
+                if (re.search(regex, item_title)):
+                    codec = overrides[regex]['codec']
+                    resolution = overrides[regex]['resolution']
+                    break
+
+        # Command line settings trump everything else
+        if hasattr(args, 'codec') and args.codec is not None: codec = args.codec[0] 
+        if hasattr(args, 'resolution') and args.resolution is not None: resolution = args.resolution[0] 
+
         if (item['codec'] != codec):
             if (args.debug): print("invalid codec ({}!={})".format(item['codec'], codec))
             continue

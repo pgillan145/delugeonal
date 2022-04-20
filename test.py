@@ -18,6 +18,7 @@ class TestUtils(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
         os.chdir(self.test_dir.name)
+        delugeonal.delugeonal.load_libraries()
 
     def tearDown(self):
         self.test_dir.cleanup()
@@ -28,7 +29,7 @@ class TestUtils(unittest.TestCase):
         self.assertIsInstance(config, configparser.ConfigParser)
 
     def test_002_rss(self):
-        delugeonal.delugeonal.load_libraries()
+        self.assertTrue(len(delugeonal.delugeonal.mediasites) > 0)
         for site in (delugeonal.delugeonal.mediasites):
             feed = site.rss_feed()
             self.assertTrue(len(feed) > 0)
@@ -36,7 +37,7 @@ class TestUtils(unittest.TestCase):
             self.assertIsInstance(test_item, dict)
 
     def test_003_mediadb(self):
-        delugeonal.delugeonal.load_libraries()
+        self.assertTrue(len(delugeonal.delugeonal.mediadbs) > 0)
         for db in (delugeonal.delugeonal.mediadbs):
             if (db.istype('movie')):
                 test_title = db.get_title('Back to the Future', headless = True, year = True)
