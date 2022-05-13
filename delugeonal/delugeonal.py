@@ -54,7 +54,7 @@ def main():
     if (args.add is not None and len(args.add) == 1):
         add(args.add[0], args = args)
     if (args.cleanup):
-        cleanup(args = args)
+        cleanup(args = args, torrent_dir = config['default']['torrent_dir'])
     if (args.clear_cache):
         clear_cache(args = args)
     if (args.dump_cache):
@@ -120,15 +120,11 @@ def add(directory, args = minorimpact.default_arg_flags):
                 if (args.verbose): print("deleting {}".format(f))
                 os.remove(directory + '/' + f)
 
-def cleanup(args = minorimpact.default_arg_flags):
+def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
     if ('cleanup' not in config):
         return
 
     client_config = client.get_config()
-    if 'download_location' in client_config: 
-        download_dir = client_config['download_location']
-    elif 'download-dir' in client_config:
-        download_dir = client_config['download-dir']
 
     total, used, free = shutil.disk_usage('/')
     target_free = total * .05
@@ -137,12 +133,13 @@ def cleanup(args = minorimpact.default_arg_flags):
     if (args.verbose): print("free space:{}/{}".format(minorimpact.disksize(free, units='b'),minorimpact.disksize(target_free, units='b')))
 
     # Figure out how much space we *actually* need to free up based on what's waiting in the download queue.
-    for f in os.listdir(download_dir):
-        data = None
-        if (re.search('.torrent$', f)):
-            t = Torrent.from_file(download_dir + '/' + f)
-            if (args.verbose): print("need additional space for {}:{}".format(t, minorimpact.disksize(t.total_size, units='b')))
-            target_free = target_free + t.total_size
+    if (torrent_dir is not None):
+        for f in os.listdir(torrent_dir):
+            data = None
+            if (re.search('.torrent$', f)):
+                t = Torrent.from_file(torrent_dir + '/' + f)
+                if (args.verbose): print("need additional space for {}:{}".format(t, minorimpact.disksize(t.total_size, units='b')))
+                target_free = target_free + t.total_size
 
     #delete_torrents('notracker', description = "torrents with no tracker", verbose = verbose)
     #delete_torrents('public_ratio', description = "public torrents that have exceeded the minimum ratio", verbose = verbose)
