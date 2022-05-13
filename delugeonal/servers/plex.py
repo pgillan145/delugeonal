@@ -26,7 +26,21 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
 
         episodes = []
         for episode in show.episodes():
-            episodes.append({'show':show.title, 'episode':episode.index, 'season':episode.parentIndex, 'title':episode.title})
+            resolution = 0
+            try:
+                for media in episode.media:
+                    r = media.videoResolution
+                    if (r == '4k'): r = '2160'
+                    if (r == 'sd'): r = '480'
+                    r = int(r)
+                    if (r > resolution):
+                        resolution = r
+                    #print(media.videoResolution, media.videoCodec, media.container)
+                    #for part in media.parts:
+                        #print(part.file, part.videoProfile)
+            except Exception as e:
+                pass
+            episodes.append({'show':show.title, 'episode':episode.index, 'season':episode.parentIndex, 'title':episode.title, 'resolution':resolution})
 
         #self.cache[title]['episodes'] = episodes
         #self.cache[title]['mod_date'] = datetime.now()

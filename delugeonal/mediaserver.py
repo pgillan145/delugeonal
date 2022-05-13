@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import minorimpact
+import re
 #import importlib
 #medialib = config.medialib if hasattr(config, 'medialib') and config.medialib is not None else None
 #if (medialib is None):
@@ -19,10 +20,15 @@ class MediaServer(ABC):
     def episodes(self, show):
         pass
 
-    def exists(self, title, season, episode, args = minorimpact.default_arg_flags):
+    def exists(self, title, season, episode, resolution = None, args = minorimpact.default_arg_flags):
+        if (resolution is not None and isinstance(resolution, str)):
+            if (resolution == '4k'): resolution = '2160'
+            if (resolution == 'sd'): resolution = '480'
+            resolution = re.sub('[pi]$','', resolution) 
+            resolution = int(resolution)
+
         for ep in self.episodes(title):
-            #if (args.debug): print(ep)
-            if (ep['season'] == season and ep['episode'] == episode):
+            if (ep['season'] == season and ep['episode'] == episode) and (resolution is None or (ep['resolution'] is not None and ep['resolution'] >= resolution)):
                 return True
         return False
 

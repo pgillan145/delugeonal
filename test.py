@@ -46,5 +46,11 @@ class TestUtils(unittest.TestCase):
                 test_title = db.get_title('Seinfeld', headless = True, year = True)
                 self.assertEqual(test_title, 'Seinfeld (1989)')
 
+    def test_004_mediaserver(self):
+        self.assertIsNotNone(delugeonal.delugeonal.mserver)
+        self.assertTrue(delugeonal.delugeonal.mserver.exists('Buffy the Vampire Slayer', 1, 1))
+        self.assertFalse(delugeonal.delugeonal.mserver.exists('Buffy the Vampire Slayer', 1, 1, resolution = 1080))
+        self.assertTrue(delugeonal.delugeonal.mserver.exists('Babylon 5', 5, 22, resolution = 480))
+
 if __name__ == '__main__':
     unittest.main()

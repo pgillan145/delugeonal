@@ -297,7 +297,7 @@ def download(downloads, args = minorimpact.default_arg_flags):
         if (mserver is not None):
             exists = False
             try:
-                exists = mserver.exists(title, item['season'], item['episode'], args = args)
+                exists = mserver.exists(title, item['season'], item['episode'], resolution = item['resolution'], args = args)
                 uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(mserver.name, title)})
             except Exception as e:
                 if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(mserver.name, title))
