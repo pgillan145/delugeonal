@@ -83,15 +83,7 @@ def add(directory, args = minorimpact.default_arg_flags):
     for f in os.listdir(directory):
         data = None
         if (re.search('.torrent$', f)):
-            total_size = 0
-            m = open(directory + '/' + f, 'rb')
-            torrent_data = m.read()
-            t = bencode.decode(torrent_data)
-            if (t is None or 'info' not in t or 'files' not in t['info']):
-                if (args.verbose): print("can't gat a list of files from {}".format(f))
-                continue
-            for torrent_file in t['info']['files']:
-                total_size = total_size + int(torrent_file['length'])
+            total_size = torrent_size(directory + '/' + f)
             if (args.verbose): print("{}\nsize:{}".format(f, minorimpact.disksize(total_size, units='b')))
             if (free - total_size < target_free):
                 if (args.verbose): print("not enough free space for {}".format(f))
@@ -137,9 +129,9 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
         for f in os.listdir(torrent_dir):
             data = None
             if (re.search('.torrent$', f)):
-                t = Torrent.from_file(torrent_dir + '/' + f)
-                if (args.verbose): print("need additional space for {}:{}".format(t, minorimpact.disksize(t.total_size, units='b')))
-                target_free = target_free + t.total_size
+                total_size = torrent_size(torrent_dir + '/' + f)
+                if (args.verbose): print("need additional space for {}:{}".format(f, minorimpact.disksize(total_size, units='b')))
+                target_free = target_free + total_size
 
     #delete_torrents('notracker', description = "torrents with no tracker", verbose = verbose)
     #delete_torrents('public_ratio', description = "public torrents that have exceeded the minimum ratio", verbose = verbose)
@@ -879,6 +871,17 @@ def setup():
         #torrentclient = importlib.import_module(torrentclientlib, __name__)
         torrentclient = importlib.import_module(torrentclientlib, 'delugeonal')
         client = torrentclient.TorrentClient(config)
+
+def torrent_size(f):
+    total_size = 0
+    m = open(f, 'rb')
+    torrent_data = m.read()
+    t = bencode.decode(torrent_data)
+    if (t is None or 'info' not in t or 'files' not in t['info']):
+        raise Exception("can't gat a list of files from {}".format(f))
+    for torrent_file in t['info']['files']:
+        total_size = total_size + int(torrent_file['length'])
+    return total_size
 
 def torrents(args = minorimpact.default_arg_flags):
     info = client.get_info(verbose = args.verbose)
