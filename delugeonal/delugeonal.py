@@ -1,6 +1,7 @@
 import argparse
 import atexit
 from datetime import datetime, timedelta
+import delugeonal.mediaserver
 from dumper import dump
 from fuzzywuzzy import fuzz
 import importlib
@@ -294,9 +295,14 @@ def download(downloads, args = minorimpact.default_arg_flags):
             try:
                 exists = mserver.exists(title, item['season'], item['episode'], resolution = item['resolution'], args = args)
                 uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(mserver.name, title)})
-            except Exception as e:
+            except delugeonal.mediaserver.TitleNotFoundException as e:
                 if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(mserver.name, title))
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':"Can't get {} title for '{}'".format(mserver.name, title)})
+                if (item['season'] != 1 or item['episode'] != 1):
+                    uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':repr(e)})
+                    continue
+            except Exception as e:
+                if (args.verbose): print(" ... FAILED: {}".format(repr(e)))
+                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':repr(e)})
                 continue
 
             if (exists):

@@ -8,6 +8,9 @@ import re
 #media = importlib.import_module(medialib)
 #m = media.Server()
 
+class TitleNotFoundException(Exception):
+    pass
+
 class MediaServer(ABC):
     def __init__(self, name, config, cache = {}):
         if ('server' not in cache): cache['server'] = {}
