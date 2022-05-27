@@ -297,7 +297,9 @@ def download(downloads, args = minorimpact.default_arg_flags):
                 uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(mserver.name, title)})
             except delugeonal.mediaserver.TitleNotFoundException as e:
                 if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(mserver.name, title))
-                if (item['season'] != 1 or item['episode'] != 1):
+                # Make an exception and allow the download of a show that's not in the media server *if* it's the first episode
+                #   of a season.
+                if (item['episode'] != 1):
                     uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':repr(e)})
                     continue
             except Exception as e:
