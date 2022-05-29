@@ -10,6 +10,10 @@
 cache_file = /tmp/delugeonal.cache
 # The main directory from whence things come and go
 download_dir = /my/home/Downloads
+# The directory torrents live in before they are added to the torrentclient.  Used to determine how much space needs to
+#   be freed up before new torrents are added in the event of the disk being at or near capacity.
+torrent_dir = /my/home/Torrents
+
 media_dirs = [ '/Volumes/Media', '/Volumes/Overflow' ]
 # The name of the media_dir subdirectory that contains Movies
 movie_dir = Movies
@@ -50,6 +54,15 @@ transforms = { 'American Dad! (2005)': [ {'criteria':'season>11', 'action':'seas
                'Rick and Morty (2013)': [ {'criteria':'season==5,episode==0', 'action':'season=0,episode=180' } ],
                'Scenes from a Marriage (US) (2021)': [ {'criteria':'season>0', 'action':'title=Scenes from a Marriage (2021)' } ]}
 
+# Use these codec/resolutions for downloads that match these names.
+download_overrides = { 'Moon Knight': { 'resolution': '1080p', 'codec': 'H.264' },
+                       'Picard': { 'resolution': '1080p', 'codec': 'H.264' },
+                       'Halo': { 'resolution': '1080p', 'codec': 'H.264' },
+                       'Kenobi': { 'resolution': '1080p', 'codec': 'H.264' },
+                       'Strange New Worlds': { 'resolution': '1080p', 'codec': 'H.264' },
+                     }
+
+
 
 
 # Libraries
@@ -72,6 +85,10 @@ seedtime = { "specific.tracker":15, "default":1 }
 min_keep_ratio = .01
 # If this value is True, cleanup won't happen for files that still live in the "default" directory they were added to when the download completed.
 wait_for_file_move = True
+# Delete as many active torrents as necessary to maintain at least this much free space, in percent
+free_percent = 5
+# Skip any torrents whose names match any of the regular expressions in this array.
+ignore = [ 'Marvel', '\.iso$' ]
 
 # Media Servers
 [plex]
