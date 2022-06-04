@@ -77,8 +77,11 @@ def add(directory, args = minorimpact.default_arg_flags):
         sys.exit("'{}' doesn't exist".format(directory))
     if (args.dryrun): verbose = True
 
+    free_percent = 5
+    if ('cleanup' in config and 'free_percent' in config['cleanup']):
+        free_percent = int(config['cleanup']['free_percent'])
     total, used, free = shutil.disk_usage('/')
-    target_free = total * .05
+    target_free = total * (free_percent/100)
 
     for f in os.listdir(directory):
         data = None
@@ -118,11 +121,12 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
 
     client_config = client.get_config()
 
-    total, used, free = shutil.disk_usage('/')
     free_percent = 5
     if ('free_percent' in config['cleanup']):
         free_percent = int(config['cleanup']['free_percent'])
+    total, used, free = shutil.disk_usage('/')
     target_free = total * (free_percent/100)
+
     if (args.force is True):
         target_free = total
     if (args.verbose): print("free space:{}/{}".format(minorimpact.disksize(free, units='b'),minorimpact.disksize(target_free, units='b')))
