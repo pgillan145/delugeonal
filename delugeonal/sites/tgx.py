@@ -20,6 +20,9 @@ class MediaSite(delugeonal.mediasite.site):
                 url : str
                     The download url.
         """
+        if (self.config is None):
+            return []
+
         items = []
         rss_url = 'https://torrentgalaxy.to/rss'
         r = requests.get(rss_url)
@@ -54,6 +57,9 @@ class MediaSite(delugeonal.mediasite.site):
                 url : str
                     The download url.
         """
+        if (self.config is None):
+            return []
+
         if (search_string is None):
             raise Exception("Invalid search string")
 
@@ -74,4 +80,6 @@ class MediaSite(delugeonal.mediasite.site):
 
         return items
 
+    def trackers(self):
+        return []
         

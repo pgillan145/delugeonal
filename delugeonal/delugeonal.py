@@ -18,7 +18,6 @@ import shutil
 import sys
 import time
 from uravo import uravo
-#from torrentool.api import Torrent
 import bencode
 
 cache = {}
@@ -225,7 +224,7 @@ def download(downloads, args = minorimpact.default_arg_flags):
     for d in downloads:
         name = d['name']
         url = d['url']
-        date = d['date']
+        date = d['date'] if ('date' in d) else None
         #print(name + " (" + url + "):" + str(date))
 
         parsed = PTN.parse(name)
@@ -847,14 +846,12 @@ def setup():
     if ('cache_file' in config['default']):
         cache_file = config['default']['cache_file']
         if (os.path.exists(cache_file)):
-            #print("loading cache data from " + cache_file)
             with open(cache_file, "rb") as f:
                 cache = pickle.load(f)
 
     mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config['default'] and config['default']['mediadblibs'] is not None else None
     if (mediadblibs is not None and len(mediadblibs)>0):
         for mediadblib in (mediadblibs):
-       	    #db = importlib.import_module(mediadblib, __name__)
        	    db = importlib.import_module(mediadblib, 'delugeonal')
             try:
                 mediadbs.append(db.MediaDb(config, cache = cache))
@@ -863,14 +860,14 @@ def setup():
 
     mediaserverlib = config['default']['mediaserverlib'] if 'mediaserverlib' in config['default'] and config['default']['mediaserverlib'] is not None else None
     if (mediaserverlib is not None):
-        #mediaserver = importlib.import_module(mediaserverlib, __name__)
         server = importlib.import_module(mediaserverlib, 'delugeonal')
         mserver = server.MediaServer(config, cache = cache)
 
-    mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
+    # TODO: Make this load everything in the 'sites' directory.
+    # TODO: Add a user configurable 'sites' directory for custom modules.
+    mediasitelibs = [ '.sites.eztv', '.sites.ipt', '.sites.tgx', '.sites.torrenting' ]
     if (mediasitelibs is not None and len(mediasitelibs) > 0):
         for mediasitelib in (mediasitelibs):
-            #site = importlib.import_module(mediasitelib, __name__)
             site = importlib.import_module(mediasitelib, 'delugeonal')
             try:
                 mediasites.append(site.MediaSite(config))
@@ -879,7 +876,6 @@ def setup():
 
     torrentclientlib = config['default']['torrentclientlib'] if 'torrentclientlib' in config['default'] and config['default']['torrentclientlib'] is not None else None
     if (torrentclientlib is not None):
-        #torrentclient = importlib.import_module(torrentclientlib, __name__)
         torrentclient = importlib.import_module(torrentclientlib, 'delugeonal')
         client = torrentclient.TorrentClient(config)
 
@@ -898,7 +894,6 @@ def torrents(args = minorimpact.default_arg_flags):
     info = client.get_info(verbose = args.verbose)
     for f in info:
         print("{}: ratio:{}, size:{}, seedtime:{}, tracker:{}({})".format(f, info[f]['ratio'], info[f]['size'], info[f]['seedtime'], info[f]['tracker'], info[f]['trackerstatus']))
-        #print(info[f]['trackers'])
 
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])

@@ -7,10 +7,13 @@ import xml.etree.ElementTree as ET
 
 class MediaSite(delugeonal.mediasite.site):
     def __init__(self, config):
-        super().__init__('ipt', config, name = 'IPTorrents')
+        super().__init__('ipt', config, name = 'IPTorrents', seedtime = 15)
 
     # return [{name, title, season, episode, url, codec, resolution}]
     def rss_feed(self):
+        if (self.config is None):
+            return []
+
         # TV/x265 = 99 TV/Web-DL = 22 TV/x264 = 5 TV/BD = 23
         if ('user_id' not in self.config):
             raise Exception('user_id is not defined.')
@@ -40,3 +43,6 @@ class MediaSite(delugeonal.mediasite.site):
 
     def search_site(self, search_string):
         return []
+
+    def trackers(self):
+        return [ 'empirehost.me', 'stackoverflow.tech', 'bgp.technology' ]

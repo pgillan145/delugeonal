@@ -12,23 +12,20 @@ import sys
 from uravo import uravo
 
 class site(ABC):
-    def __init__(self, key, config, name = None):
+    def __init__(self, key, config, name = None, seedtime = 1):
         atexit.register(self.cleanup)
         if (name is None):
             name = key
         self.site_key = key
         self.name = name
+        self.seedtime = seedtime
 
         if (self.site_key is None):
             raise Exception("site key is not defined")
-        if (self.site_key not in config):
-            raise Exception("'{}' not in config".format(self.site_key))
 
-        self.full_config = config
-        self.config = config[self.site_key]
-
-        self.rss_url = self.config['rss_url'] if ('rss_url' in self.config) else None
-        self.search_url = self.config['search_url'] if ('search_url' in self.config) else None
+        self.config = config[self.site_key] if (self.site_key in config) else None
+        self.rss_url = self.config['rss_url'] if (self.config is not None and 'rss_url' in self.config) else None
+        self.search_url = self.config['search_url'] if (self.config is not None and 'search_url' in self.config) else None
 
     def cleanup(self):
         pass
@@ -77,5 +74,9 @@ class site(ABC):
                 date : datetime
                     Torrent file date.  Optional.
         """
+        pass
+
+    @abstractmethod
+    def trackers(self):
         pass
 

@@ -9,9 +9,11 @@ class MediaSite(delugeonal.mediasite.site):
     def __init__(self, config):
         super().__init__('eztv', config, name = 'EZTV')
 
-    # return [{name, title, season, episode, url, codec, resolution}]
     def rss_feed(self):
         """Retrieve the rss feed for this site and return a list of torrents."""
+        if (self.config is None):
+            return []
+
         items = []
         r = requests.get('https://eztv.re/ezrss.xml')
         root = ET.fromstring(r.text)
@@ -44,6 +46,8 @@ class MediaSite(delugeonal.mediasite.site):
                 url : str
                     The url.
         """
+        if (self.config is None):
+            return []
         
         # TODO: Order by seeds, and take the highest.
         search_url = 'https://eztv.re/search/'
@@ -78,3 +82,5 @@ class MediaSite(delugeonal.mediasite.site):
 
         return items
 
+    def trackers(self):
+        return []
