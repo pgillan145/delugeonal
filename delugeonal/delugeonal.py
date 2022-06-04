@@ -895,6 +895,14 @@ def torrents(args = minorimpact.default_arg_flags):
     for f in info:
         print("{}: ratio:{}, size:{}, seedtime:{}, tracker:{}({})".format(f, info[f]['ratio'], info[f]['size'], info[f]['seedtime'], info[f]['tracker'], info[f]['trackerstatus']))
 
+def trackers():
+    trackers = []
+    setup()
+    for site in mediasites:
+        for tracker in site.trackers():
+            trackers.append(tracker)
+    return trackers
+
 def transform(title, season, episode):
     transforms = eval(config['default']['transforms'])
 
@@ -937,7 +945,7 @@ def transform(title, season, episode):
     return None
 
 def write_cache():
-    if ('cache_file' in config['default']):
+    if (config is not None and 'default' in config and 'cache_file' in config['default']):
         cache_file = config['default']['cache_file']
         #print("write_cache(): cache_file = '" + cache_file + "'")
         if (os.path.exists(cache_file)):
