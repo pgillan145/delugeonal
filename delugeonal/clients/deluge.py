@@ -66,7 +66,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
             s = re.search("^Name: (\S.+)$", l)
             if (s):
                 f = s.groups()[0]
-                info[f] = {"name":f, "orig_torrent_file":self.get_torrent_file(f, config=deluge_config, verbose=verbose), "data_file":self.get_data_file(f, config=deluge_config, verbose=verbose), "ratio":0.0, "tracker":None, "trackerstatus":None, "state":None}
+                info[f] = {'name':f, 'orig_torrent_file':self.get_torrent_file(f, config=deluge_config, verbose=verbose), 'data_file':self.get_data_file(f, config=deluge_config, verbose=verbose), 'ratio':0.0, 'tracker':None, 'trackerstatus':None, 'state':None, 'size':0}
 
             s = re.search("^ID: (\S+)$", l)
             if (s):
