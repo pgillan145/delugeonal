@@ -888,10 +888,13 @@ def torrent_size(f):
     m = open(f, 'rb')
     torrent_data = m.read()
     t = bencode.decode(torrent_data)
-    if (t is None or 'info' not in t or 'files' not in t['info']):
-        raise Exception("can't gat a list of files from {}".format(f))
-    for torrent_file in t['info']['files']:
-        total_size = total_size + int(torrent_file['length'])
+    if (t is None or 'info' not in t):
+        raise Exception("can't get info from {}".format(f))
+    if ('files' not in t['info']):
+        total_size = int(t['info']['length'])
+    else:
+        for torrent_file in t['info']['files']:
+            total_size = total_size + int(torrent_file['length'])
     return total_size
 
 def torrents(args = minorimpact.default_arg_flags):
