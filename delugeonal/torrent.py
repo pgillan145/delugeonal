@@ -19,10 +19,15 @@ class torrent():
 
     def size(self):
         total_size = 0
-        if (self.torrent_data is None or 'info' not in self.torrent_data or 'files' not in self.torrent_data['info']):
-            raise Exception("can't gat a list of files from {}".format(self.filename))
-        for torrent_file in self.torrent_data['info']['files']:
-            total_size = total_size + int(torrent_file['length'])
+        if (self.torrent_data is None or 'info' not in self.torrent_data):
+            raise Exception("can't info from {}".format(self.filename))
+        if ('files' in self.torrent_data['info']):
+            for torrent_file in self.torrent_data['info']['files']:
+                total_size = total_size + int(torrent_file['length'])
+        elif ('length' in self.torrent_data['info']):
+            total_size = int(self.torrent_data['info']['length'])
+        else:
+            raise Exception("can't size of {}".format(self.filename))
         return total_size
 
     def trackers(self):

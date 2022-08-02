@@ -29,7 +29,7 @@ pidfile = /tmp/delugeonal.pid
 # Only download files matching this codec
 codec = H.265
 # Only download files matching this resolution
-resolution = 720p
+resolution = 1080p
 # When torrent file names need an addjustment before they can be used, apply these transformations.  Multiple 
 #   tranformations can be defined per show.  All comma separated criteria must match before each comma separated
 #   action is applied.
@@ -55,14 +55,13 @@ transforms = { 'American Dad! (2005)': [ {'criteria':'season>11', 'action':'seas
                'Scenes from a Marriage (US) (2021)': [ {'criteria':'season>0', 'action':'title=Scenes from a Marriage (2021)' } ]}
 
 # Use these codec/resolutions for downloads that match these names.
-download_overrides = { 'Moon Knight': { 'resolution': '1080p', 'codec': 'H.264' },
+download_overrides = { 'Family Guy': { 'resolution': '720p', 'codec': 'H.265' },
+                       'Moon Knight': { 'resolution': '1080p', 'codec': 'H.264' },
                        'Picard': { 'resolution': '1080p', 'codec': 'H.264' },
                        'Halo': { 'resolution': '1080p', 'codec': 'H.264' },
                        'Kenobi': { 'resolution': '1080p', 'codec': 'H.264' },
-                       'Strange New Worlds': { 'resolution': '1080p', 'codec': 'H.264' },
+                       'Last Week Tonight': { 'resolution': '720p', 'codec': 'H.265' },
                      }
-
-
 
 
 # Libraries
@@ -70,7 +69,6 @@ download_overrides = { 'Moon Knight': { 'resolution': '1080p', 'codec': 'H.264' 
 # Python objects to use for access to various services. See FUTURE DOCUMENTATION for more information.
 mediadblibs = [ '.dbs.thetvdb', '.dbs.imdb' ]
 mediaserverlib = .servers.plex
-mediasitelibs = [ '.sites.eztv', '.sites.ipt' ]
 torrentclientlib = .clients.deluge
 
 # Torrent Client Maintenance settings
@@ -98,14 +96,8 @@ url = http://127.0.0.1:32400
 token = XXXXXX
 
 # Media Sites
-[eztv]
-rss_url = https://eztv.re/ezrss.xml
-search_url = https://eztv.re/search/
 
-[tgx]
-rss_url = https://torrentgalaxy.to/rss
-search_url = https://torrentgalaxy.to/torrents.php?search=
-
+# Only defined sites will be considered 'active' for purposes of downloading.
 [ipt]
 # IPTorrents
 # URL to monitor for automatic RSS downloads
