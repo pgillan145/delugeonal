@@ -1,6 +1,6 @@
+cinemagoer
 dumper
 fuzzywuzzy
-IMDbPy
 minorimpact
 parse-torrent-title
 plexapi

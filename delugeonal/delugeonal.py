@@ -819,8 +819,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                     shutil.move(filename, movie_dir + '/' + new_basename + '.' + extension)
                     uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {}.{} to {}/{}.{}".format(basename, extension, movie_dir, new_basename, extension))
             if (os.path.exists(dirname + '/' + basename + '.srt')):
-                if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, movie_dir, new_basename))
-                if (args.dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + new_basename + '.en.srt')
+                if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, movie_dir, title))
+                if (args.dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + title + '.en.srt')
 
             if (dirname != config['default']['download_dir'] and media_files(dirname, video_formats = video_formats) == 0):
                 c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(dirname), echo=True).lower()
