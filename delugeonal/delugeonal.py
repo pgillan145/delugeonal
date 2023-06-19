@@ -1,5 +1,6 @@
 import argparse
 import atexit
+import bencode
 from datetime import datetime, timedelta
 import delugeonal.mediaserver
 from dumper import dump
@@ -18,7 +19,7 @@ import shutil
 import sys
 import time
 from uravo import uravo
-import bencode
+import uuid
 
 cache = {}
 client = None
@@ -32,6 +33,7 @@ def main():
     #print("cache_file:" + cache_file)
 
     parser = argparse.ArgumentParser(description="delugeonal")
+    default_snapshot = str(uuid.uuid1())
     parser.add_argument('-f', '--force', help = "bypass built-in delays", action='store_true')
     parser.add_argument('-v', '--verbose', help = "extra loud output", action='store_true')
     parser.add_argument('-y', '--yes', help = "Always say yes.", action='store_true')
@@ -47,8 +49,11 @@ def main():
     parser.add_argument('--move_media', metavar = 'DIR', help = "Move media files from the download directory (or DIR, if specified) to the appropriate media folders", nargs='?', const=config['default']['download_dir'] )
     parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
     parser.add_argument('--search', metavar = 'SEARCH',  help = "Search media sites for SEARCH.", nargs=1)
+    if (config['default']['snapshot_dir'] is not None):
+        parser.add_argument('--snapshot', metavar = 'SNAPSHOT', help = "Create or load a data snapshot to/from {}/SNAPSHOT for testing purposes. Generates a unique identifier by default.".format(config['default']['snapshot_dir']), nargs='?', const = default_snapshot, default=None)
     parser.add_argument('--torrents', help = "List active torrents.", action = 'store_true')
     parser.add_argument('--resolution', metavar = 'RES',  help = "Search for torrents with a resolution of RES", nargs=1)
+
     args = parser.parse_args()
     if (args.dryrun): args.verbose = True
     if (args.add is not None and len(args.add) == 1):
@@ -286,6 +291,7 @@ def download(downloads, args = minorimpact.default_arg_flags):
 
         # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
         #   nefarious ends.
+        if(args.debug): print("transform({}, {}, {})".format(title,item['season'], item['episode']))
         transformation = transform(title, item['season'], item['episode'])
         if (transformation is not None):
             if (args.verbose): print(" ... applying transformation: '{}'=>'{}', season {}=>{}, episode {}=>{}".format(title, transformation['title'], item['season'], transformation['season'], item['episode'], transformation['episode']))
@@ -832,8 +838,24 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 def rss(args = minorimpact.default_arg_flags):
     if (args.debug): print("delugeonal.rss()")
     for site in (mediasites):
+        if (args.snapshot is not None and 'snapshot_dir' in config['default']):
+            tmp_dir = config['default']['snapshot_dir'] + '/' + args.snapshot
+            os.makedirs(tmp_dir, exist_ok=True)
+            tmp_file = tmp_dir + '/rss_feed.' + site.name + '.pickle'
+            if (os.path.exists(tmp_file) is True):
+                print("reading rss_feed from {}".format(tmp_file))
+                with open(tmp_file, 'rb') as f:
+                    rss_feed = pickle.load(f)
+            else:
+                rss_feed = site.rss_feed()
+                print("saving rss_feed to {}".format(tmp_file))
+                with open(tmp_file, 'wb') as f:
+                    pickle.dump(rss_feed, f)
+        else:
+            rss_feed = site.rss_feed()
+
         try:
-            download(site.rss_feed(), args = args)
+            download(rss_feed, args = args)
         except Exception as e:
             print(e)
 
@@ -850,7 +872,7 @@ def setup():
     if ('cache_file' in config['default']):
         cache_file = config['default']['cache_file']
         if (os.path.exists(cache_file)):
-            with open(cache_file, "rb") as f:
+            with open(cache_file, 'rb') as f:
                 cache = pickle.load(f)
 
     mediadblibs = eval(config['default']['mediadblibs']) if 'mediadblibs' in config['default'] and config['default']['mediadblibs'] is not None else None
@@ -957,7 +979,7 @@ def write_cache():
         #print("write_cache(): cache_file = '" + cache_file + "'")
         if (os.path.exists(cache_file)):
             #print("writing cache_file:" + cache_file)
-            with open(cache_file, "wb") as f:
+            with open(cache_file, 'wb') as f:
                 pickle.dump(cache, f)
 
 atexit.register(write_cache)
