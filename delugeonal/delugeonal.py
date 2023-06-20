@@ -322,8 +322,9 @@ def download(downloads, args = minorimpact.default_arg_flags):
 
         episode_key = "{}|S{}E{}".format(title, item['season'], item['episode'])
         if (episode_key in download_log):
-            # Yes, download_log *is* redundant (and a shitty hack), but in the case of --dryrun I don't want to add the download to the permanent cache, 
-            # but I *also* don't want to ask the user to download multiple copies of the same torrent.
+            # Yes, download_log *is* redundant (and a shitty hack), but in the case of --dryrun I don't want to add the
+            #   download to the permanent cache, but I *also* don't want to ask the user to download multiple copies of
+            #   the same torrent.
             continue
         if ('downloads' not in cache): cache['downloads'] = {}
         if (episode_key not in cache['downloads']):
@@ -977,10 +978,10 @@ def write_cache():
     if (config is not None and 'default' in config and 'cache_file' in config['default']):
         cache_file = config['default']['cache_file']
         #print("write_cache(): cache_file = '" + cache_file + "'")
-        if (os.path.exists(cache_file)):
-            #print("writing cache_file:" + cache_file)
-            with open(cache_file, 'wb') as f:
-                pickle.dump(cache, f)
+        os.makedirs(os.path.basename(cache_file), exist_ok=True)
+        #print("writing cache_file:" + cache_file)
+        with open(cache_file, 'wb') as f:
+            pickle.dump(cache, f)
 
 atexit.register(write_cache)
 

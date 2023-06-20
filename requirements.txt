@@ -5,7 +5,9 @@ minorimpact
 parse-torrent-title
 plexapi
 Python-Levenshtein
+pymysql
 pyyaml
+rarfile
 tvdb_v4_official > 1.0.7
 bencode.py
 uravo
