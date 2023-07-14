@@ -52,22 +52,19 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
             raise Exception("search string is empty.")
         if (search_string not in self.cache): self.cache[search_string] = {}
 
-        show = None
+        test_search_string = search_string
+        test_search_year = None
         if (re.search(r' \(\d\d\d\d\)$', search_string) is not None):
-            test_search_string = re.sub(r' \(\d\d\d\d\)$', '', search_string)
-            try:
-                show = self.plex.library.section('TV Shows').get(test_search_string)
-                return show
-            except NotFound as e:
-                pass
+            m = re.search(r'(.+) \((\d\d\d\d)\)$', search_string)
+            test_search_string = m.group(1)
+            test_search_year = m.group(2)
 
-        if (show is None):
-            # Let this throw an exception if title is BS, we're all out of options.
-            try:
-                show = self.plex.library.section('TV Shows').get(search_string)
-                return show
-            except NotFound as e:
-                raise delugeonal.mediaserver.TitleNotFoundException(repr(e))
+        try:
+            shows = self.plex.library.section('TV Shows').search(title=test_search_string, year=test_search_year, maxresults=1 )
+        except NotFound as e:
+            raise delugeonal.mediaserver.TitleNotFoundException(repr(e))
+
+        return shows[0]
 
     def show_name(self, search_string):
         show = self._show(search_string)
