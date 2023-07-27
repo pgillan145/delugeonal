@@ -291,7 +291,6 @@ def download(downloads, args = minorimpact.default_arg_flags):
 
         # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
         #   nefarious ends.
-        if(args.debug): print("transform({}, {}, {})".format(title,item['season'], item['episode']))
         transformation = transform(title, item['season'], item['episode'])
         if (transformation is not None):
             if (args.verbose): print(" ... applying transformation: '{}'=>'{}', season {}=>{}, episode {}=>{}".format(title, transformation['title'], item['season'], transformation['season'], item['episode'], transformation['episode']))

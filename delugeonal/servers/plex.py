@@ -19,7 +19,6 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
         #if (title in self.cache and 'episodes' in self.cache[title]): 
         #    return self.cache[title]['episodes']
         if (title not in self.cache): self.cache[title] = {}
-
         show = self._show(title)
         if (show is None):
             raise delugeonal.mediaserver.TitleNotFoundException("Can't find '{}' in {}".format(title, self.name))
@@ -64,7 +63,9 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
         except NotFound as e:
             raise delugeonal.mediaserver.TitleNotFoundException(repr(e))
 
-        return shows[0]
+        if (len(shows) > 0):
+            return shows[0]
+        return None
 
     def show_name(self, search_string):
         show = self._show(search_string)
