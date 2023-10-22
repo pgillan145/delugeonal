@@ -241,18 +241,31 @@ def download(downloads, args = minorimpact.default_arg_flags):
         if ('codec' not in parsed):
             if (args.debug): print("couldn't parse codec from {}".format(name))
             continue
-        if ('title' not in parsed or 'season' not in parsed or 'episode' not in parsed):
-            if (args.debug): print("couldn't parse title, season or episode from {}".format(name))
-            continue
         if ('resolution' not in parsed):
             # I have reservations about this.
             parsed['resolution'] = '480p'
-        if (args.debug): print(parsed)
+        if ('title' not in parsed):
+            if (args.debug): print("couldn't parse title from {}".format(name))
+            continue
+        if (args.debug): print("parsed:", parsed)
 
-        item = { 'name':name, 'title':parsed['title'], 'season':parsed['season'], 'episode':parsed['episode'], 'url':url, 'codec':parsed['codec'], 'resolution':parsed['resolution']}
-        if(args.debug): print(item)
+        daily = False
+        item = { 'name':name, 'title':parsed['title'], 'url':url, 'codec':parsed['codec'], 'resolution':parsed['resolution']}
+        if ('season' in parsed and 'episode' in parsed):
+            item['season'] = parsed['season']
+            item['episode'] = parsed['episode']
+            if ('year' in parsed): item['year'] = parsed['year']
+        elif ('month' in parsed and 'day' in parsed and 'year' in parsed):
+            daily = True
+            item['year'] = parsed['year']
+            item['month'] = parsed['month']
+            item['day'] = parsed['day']
+        else:
+            if (args.debug): print("couldn't parse season, episode or date from {}".format(name))
+            continue
 
-        item_title = "{} ({})".format(item['title'], item['year']) if 'year' in item else item['title']
+        item_title = "{} ({})".format(item['title'], item['year']) if ('year' in item and daily is False) else item['title']
+        if(args.debug): print("item_title:", item_title)
 
         codec =  config['default']['codec']
         resolution =  config['default']['resolution']
@@ -275,7 +288,12 @@ def download(downloads, args = minorimpact.default_arg_flags):
             if (args.debug): print("invalid resolution ({}!={})".format(item['resolution'], resolution))
             continue
 
-        if (args.verbose): print("processing {} S{}E{}:".format(item_title, item['season'], item['episode']))
+        if (args.verbose):
+            if (daily is True):
+                print("processing {} {}-{}-{}:".format(item_title, item['year'], item['month'], item['day']))
+            else:
+                print("processing {} S{}E{}:".format(item_title, item['season'], item['episode']))
+
         title = None
         for db in mediadbs:
             if (db.istype('tv')):
@@ -289,19 +307,29 @@ def download(downloads, args = minorimpact.default_arg_flags):
                 continue
             uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':"Got {} title for {}".format(db.name, item_title)})
 
-        # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
-        #   nefarious ends.
-        transformation = transform(title, item['season'], item['episode'])
-        if (transformation is not None):
-            if (args.verbose): print(" ... applying transformation: '{}'=>'{}', season {}=>{}, episode {}=>{}".format(title, transformation['title'], item['season'], transformation['season'], item['episode'], transformation['episode']))
-            title = transformation['title']
-            item['season'] = transformation['season']
-            item['episode'] = transformation['episode']
+        episode_key = title
+        if (daily):
+           episode_key =  "{}|{}-{}-{}".format(episode_key, item['year'], item['month'], item['day'])
+        else:
+           episode_key =  "{}|S{}E{}".format(episode_key, item['season'], item['episode'])
+
+        if (daily is False):
+            # Apply transformations to the "official" name.  This is where the user gets to override the wisdom of the masses for their own
+            #   nefarious ends.
+            transformation = transform(title, item['season'], item['episode'])
+            if (transformation is not None):
+                if (args.verbose): print(" ... applying transformation: '{}'=>'{}', season {}=>{}, episode {}=>{}".format(title, transformation['title'], item['season'], transformation['season'], item['episode'], transformation['episode']))
+                title = transformation['title']
+                item['season'] = transformation['season']
+                item['episode'] = transformation['episode']
 
         if (mserver is not None):
             exists = False
             try:
-                exists = mserver.exists(title, item['season'], item['episode'], resolution = item['resolution'], args = args)
+                if (daily):
+                    exists = mserver.exists(title, year=item['year'], month=item['month'], day=item['day'], resolution = item['resolution'], args = args)
+                else:
+                    exists = mserver.exists(title, season=item['season'], episode=item['episode'], resolution = item['resolution'], args = args)
                 uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(mserver.name, title)})
             except delugeonal.mediaserver.TitleNotFoundException as e:
                 if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(mserver.name, title))
@@ -316,10 +344,9 @@ def download(downloads, args = minorimpact.default_arg_flags):
                 continue
 
             if (exists):
-                if (args.verbose): print(" ... {} S{}E{} already in {}".format(title, item['season'], item['episode'], mserver.name))
+                if (args.verbose): print(" ... {} already in {}".format(episode_key, mserver.name))
                 continue
 
-        episode_key = "{}|S{}E{}".format(title, item['season'], item['episode'])
         if (episode_key in download_log):
             # Yes, download_log *is* redundant (and a shitty hack), but in the case of --dryrun I don't want to add the
             #   download to the permanent cache, but I *also* don't want to ask the user to download multiple copies of
@@ -329,7 +356,7 @@ def download(downloads, args = minorimpact.default_arg_flags):
         if (episode_key not in cache['downloads']):
             cache['downloads'][episode_key] = { 'item':item }
         elif (args.force is False and 'date' in cache['downloads'][episode_key] and cache['downloads'][episode_key]['date'] > datetime.now() - timedelta(hours=1)):
-            if (args.verbose): print(" ... already downloaded within the last hour")
+            if (args.verbose): print(" ... {} already downloaded within the last hour".format(episode_key))
             continue
 
         link_url = item['url']
@@ -461,7 +488,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         A list of torrent titles that fit criteria.
     """
     client_config = client.get_config()
-    if 'download_location' in client_config: 
+    if 'download_location' in client_config:
         download_location = client_config['download_location']
     elif 'download-dir' in client_config:
         download_location = client_config['download-dir']
@@ -659,12 +686,16 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     parsed = PTN.parse(basename + "." + extension)
     if ('codec' in parsed and parsed['codec'] == 'H.265'): parsed['codec'] = 'HEVC.x265'
     if ('codec' in parsed and parsed['codec'] == 'H.264'): parsed['codec'] = 'x264'
-    if ('resolution' not in parsed):  parsed['resolution'] = '480p'
+    if ('resolution' not in parsed): parsed['resolution'] = '480p'
 
     if (args.debug): print("{}:{}".format(basename, parsed))
     parsed_title = '{} ({})'.format(parsed['title'], parsed['year']) if 'year' in parsed else parsed['title']
 
-    if ('season' in parsed):
+    daily = False
+    if ('year' in parsed and 'month' in parsed and 'day' in parsed):
+        daily = True
+
+    if ('season' in parsed or daily is True):
         mediadb = None
         title = None
         tv_dir = None
@@ -697,7 +728,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                             if (os.path.exists(media_dir + '/' + config['default']['tv_dir'] + '/' + title)):
                                 if (args.debug): print("found {}/{}/{}".format(media_dir, config['default']['tv_dir'], title))
                                 tv_dir = media_dir + '/' + config['default']['tv_dir'] + '/' + title
-                    if (tv_dir is not None): 
+                    if (tv_dir is not None):
                         mediadb.match_log(os.path.basename(filename), parsed_title, titles[t]['title'], titles[t]['year'])
                         break
 
@@ -722,16 +753,17 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             tv_dir = media_dirs[0] + '/' + config['default']['tv_dir'] + '/' + title
 
         new_basename = basename
-        transformation = transform(title, parsed['season'], parsed['episode'])
-        if (transformation is not None):
-            season = transformation['season']
-            episode = transformation['episode']
-            if (int(episode) < 10): episode = '0' + str(int(episode))
-            new_basename = "{}.S{}E{}".format(title, season, episode)
-            meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
-            if (len(meta) > 0):
-                new_basename = new_basename + '.' + meta
-            if (args.debug): print(new_basename)
+        if (daily is False):
+            transformation = transform(title, parsed['season'], parsed['episode'])
+            if (transformation is not None):
+                season = transformation['season']
+                episode = transformation['episode']
+                if (int(episode) < 10): episode = '0' + str(int(episode))
+                new_basename = "{}.S{}E{}".format(title, season, episode)
+                meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
+                if (len(meta) > 0):
+                    new_basename = new_basename + '.' + meta
+                if (args.debug): print(new_basename)
 
         if (os.path.exists(tv_dir + "/" + new_basename + "." + extension) and args.yes):
             uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=3, Summary="{}/{}.{} already exists.".format(tv_dir, new_basename, extension))

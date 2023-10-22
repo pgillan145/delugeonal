@@ -23,7 +23,7 @@ class MediaServer(ABC):
     def episodes(self, show):
         pass
 
-    def exists(self, title, season, episode, resolution = None, args = minorimpact.default_arg_flags):
+    def exists(self, title, season = None, episode = None, year = None, month = None, day = None, resolution = None, args = minorimpact.default_arg_flags):
         if (resolution is not None and isinstance(resolution, str)):
             if (resolution == '4k'): resolution = '2160'
             if (resolution == 'sd'): resolution = '480'
@@ -31,8 +31,13 @@ class MediaServer(ABC):
             resolution = int(resolution)
 
         for ep in self.episodes(title):
-            if (ep['season'] == season and ep['episode'] == episode) and (resolution is None or (ep['resolution'] is not None and ep['resolution'] >= resolution)):
-                return True
+            if (year is not None and month is not None and day is not None):
+                airdate = ep['date']
+                if (airdate.year == year and airdate.month == month and airdate.day == day and ep['resolution'] >= resolution):
+                    return True
+            else:
+                if (ep['season'] == season and ep['episode'] == episode) and (resolution is None or (ep['resolution'] is not None and ep['resolution'] >= resolution)):
+                    return True
         return False
 
     def latest_episode(self, title):
