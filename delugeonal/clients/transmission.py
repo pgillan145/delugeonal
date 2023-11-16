@@ -71,7 +71,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 if (s):
                     f = s.groups()[0]
                     #info[f] = {"name":f, "orig_torrent_file":self.get_torrent_file(f, config=deluge_config, verbose=verbose), "data_file":self.get_data_file(f, config=deluge_config, verbose=verbose), "ratio":0.0, "tracker":None, "trackerstatus":None, "state":None}
-                    info[f] = {'name':f, 'id':id, 'ratio':0.0, 'state':None, 'seedtime':0, 'size':0 }
+                    info[f] = {'name':f, 'id':id, 'ratio':0.0, 'state':None, 'seedtime':0, 'size':0, 'upload_value':0.00000}
 
                 #s = re.search("^  Id: (\S+)$", l)
                 #if (s):
@@ -94,6 +94,10 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 if (s):
                     secs = int(s.groups()[0])
                     info[f]["seedtime"] = secs
+
+                if (f in info and 'seedtime' in info[f] and info[f]['seedtime'] > 3600 and 'ratio' in info[f]):
+                    upload_value = info[f]['ratio']/int(info[f]['seedtime']/3600)
+                    info[f]['upload_value'] = "{:.5f}".format(upload_value)
 
                 s = re.search("^  Total size: ([\d\.]+) (\w+) ", l)
                 if (s):
