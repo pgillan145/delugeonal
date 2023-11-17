@@ -355,7 +355,7 @@ def download(downloads, args = minorimpact.default_arg_flags):
         if ('downloads' not in cache): cache['downloads'] = {}
         if (episode_key not in cache['downloads']):
             cache['downloads'][episode_key] = { 'item':item }
-        elif (args.force is False and 'date' in cache['downloads'][episode_key] and cache['downloads'][episode_key]['date'] > datetime.now() - timedelta(hours=1)):
+        elif (args.force is False and 'date' in cache['downloads'][episode_key] and cache['downloads'][episode_key]['date'] > datetime.now() - timedelta(hours=4)):
             if (args.verbose): print(" ... {} already downloaded within the last hour".format(episode_key))
             continue
 
@@ -677,8 +677,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
     if (extension not in video_formats): return
     parsed = PTN.parse(basename + "." + extension)
-    if ('codec' in parsed and parsed['codec'] == 'H.265'): parsed['codec'] = 'HEVC.x265'
-    if ('codec' in parsed and parsed['codec'] == 'H.264'): parsed['codec'] = 'x264'
+    #if ('codec' in parsed and parsed['codec'] == 'H.265'): parsed['codec'] = 'HEVC.x265'
+    #if ('codec' in parsed and parsed['codec'] == 'H.264'): parsed['codec'] = 'x264'
     if ('resolution' not in parsed): parsed['resolution'] = '480p'
 
     if (args.debug): print("{}:{}".format(basename, parsed))
@@ -825,7 +825,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             movie_dir = media_dirs[0] + '/' + config['default']['movie_dir'] + '/' + title
 
         new_basename = title
-        meta = meta_info(parsed, ['resolution'])
+        meta = meta_info(parsed, ['resolution', 'quality', 'codec', 'audio', 'encoder'])
         if (len(meta) > 0):
             new_basename = new_basename + ' - ' + meta
 
