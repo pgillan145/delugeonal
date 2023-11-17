@@ -181,7 +181,7 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
                 continue
             if (args.verbose): print("{}".format(f))
             info = client.get_info(f)
-            if (args.verbose): print("  ratio:{:.1f} seedtime:{:.1f} state:{} size:{}".format(info[f]['ratio'], info[f]['seedtime']/(3600*24), info[f]['state'], minorimpact.disksize(info[f]['size'])))
+            if (args.verbose): print("  ratio:{:.1f} seedtime:{:.1f} upload_value:{:.5f} state:{} size:{}".format(info[f]['ratio'], info[f]['seedtime']/(3600*24), info[f][upload_value], info[f]['state'], minorimpact.disksize(info[f]['size'])))
             if (args.verbose): print("  Tracker: {}/{}".format(info[f]['tracker'], info[f]['trackerstatus']))
             if (args.verbose): print("  file:{}".format(info[f]['data_file']))
             c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(f), echo=True).lower()

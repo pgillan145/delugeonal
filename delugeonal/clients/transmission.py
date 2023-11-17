@@ -97,7 +97,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
 
                 if (f in info and 'seedtime' in info[f] and info[f]['seedtime'] > 3600 and 'ratio' in info[f]):
                     upload_value = info[f]['ratio']/int(info[f]['seedtime']/3600)
-                    info[f]['upload_value'] = "{:.5f}".format(upload_value)
+                    info[f]['upload_value'] = upload_value
 
                 s = re.search("^  Total size: ([\d\.]+) (\w+) ", l)
                 if (s):
