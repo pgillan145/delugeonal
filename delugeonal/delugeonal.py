@@ -753,7 +753,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                 episode = transformation['episode']
                 if (int(episode) < 10): episode = '0' + str(int(episode))
                 new_basename = "{}.S{}E{}".format(title, season, episode)
-                meta = meta_info(parsed, ['quality','resolution', 'codec', 'encoder'])
+                meta = meta_info(parsed, ['quality','resolution', 'codec', 'bitdepth', 'hdr', 'encoder'])
                 if (len(meta) > 0):
                     new_basename = new_basename + '.' + meta
                 if (args.debug): print(new_basename)
@@ -825,7 +825,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             movie_dir = media_dirs[0] + '/' + config['default']['movie_dir'] + '/' + title
 
         new_basename = title
-        meta = meta_info(parsed, ['resolution', 'quality', 'codec', 'audio', 'encoder'])
+        if (args.debug): dump(parsed)
+        meta = meta_info(parsed, ['resolution', 'quality', 'codec', 'audio', 'encoder'], delim=',')
         if (len(meta) > 0):
             new_basename = new_basename + ' - ' + meta
 
@@ -962,12 +963,15 @@ def transform(title, season, episode):
 
     if title in transforms:
         for transform in transforms[title]:
+            print(transform)
             criteria = []
             action = []
             for c in transform['criteria'].split(','):
                 match = re.search('^([a-z]+)([=<>]+)([0-9]+)$', c)
                 if (match):
-                    criteria.append({"field":match.group(1), "cmp":match.group(2), "value":match.group(3)})
+                    foo = {"field":match.group(1), "cmp":match.group(2), "value":match.group(3)}
+                    print(foo)
+                    criteria.append(foo)
 
             for a in transform['action'].split(','):
                 match = re.search('^([a-z]+)([+-=])(.+)$', a)
@@ -977,24 +981,25 @@ def transform(title, season, episode):
                         foo = {"field":match.group(1), "action":match.group(2), "value":value}
                     else:
                         foo = {"field":match.group(1), "action":match.group(2), "value":'"{}"'.format(value)}
+                    print(foo)
                     action.append(foo)
 
-            if (criteria and action):
-                transformation = {'title': title, 'season': season, 'episode':episode}
-                criteria_string = ''
-                for c in criteria:
-                    criteria_string = '{} and {}{}{}'.format(criteria_string, c["field"], c["cmp"], c["value"])
-                criteria_string = re.sub('^ and ', '', criteria_string)
-                if (eval(criteria_string, {}, transformation)):
-                    for a in action:
-                        if (a['action'] == '='):
-                            s = "{} = {}".format(a['field'], a['value'])
-                            exec(s, {}, transformation)
-                        else:
-                            s = "{} = {} {} {}".format(a['field'], a['field'], a['action'], a['value'])
-                            exec(s, {}, transformation)
+        if (criteria and action):
+            transformation = {'title': title, 'season': season, 'episode':episode}
+            criteria_string = ''
+            for c in criteria:
+                criteria_string = '{} and {}{}{}'.format(criteria_string, c["field"], c["cmp"], c["value"])
+            criteria_string = re.sub('^ and ', '', criteria_string)
+            if (eval(criteria_string, {}, transformation)):
+                for a in action:
+                    if (a['action'] == '='):
+                        s = "{} = {}".format(a['field'], a['value'])
+                        exec(s, {}, transformation)
+                    else:
+                        s = "{} = {} {} {}".format(a['field'], a['field'], a['action'], a['value'])
+                        exec(s, {}, transformation)
 
-                return transformation
+            return transformation
 
     return None
 
