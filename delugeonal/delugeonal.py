@@ -747,7 +747,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
         new_basename = basename
         if (daily is False):
-            transformation = transform(title, parsed['season'], parsed['episode'])
+            transformation = transform(title, parsed['season'], parsed['episode'], args = args)
             if (transformation is not None):
                 season = transformation['season']
                 episode = transformation['episode']
