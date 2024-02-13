@@ -682,11 +682,15 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     if ('resolution' not in parsed): parsed['resolution'] = '480p'
 
     if (args.debug): print("{}:{}".format(basename, parsed))
-    parsed_title = '{} ({})'.format(parsed['title'], parsed['year']) if 'year' in parsed else parsed['title']
 
     daily = False
     if ('year' in parsed and 'month' in parsed and 'day' in parsed):
         daily = True
+
+    if ('year' in parsed and daily is False):
+        parsed_title = '{} ({})'.format(parsed['title'], parsed['year'])
+    else:
+        parsed_title = parsed['title']
 
     if ('season' in parsed or daily is True):
         mediadb = None
