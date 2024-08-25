@@ -505,15 +505,19 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
     reverse = criteria['reverse'] if 'reverse' in criteria else True
     delete = []
     info = client.get_info()
+    x = 0
     for f in sorted(info.keys(), key=lambda x: info[x][sort], reverse=reverse):
+        x = x + 1
+        #print("X={}".format(x))
+        #dump(info[f])
         if config['cleanup']['wait_for_file_move'] and info[f]['data_file'] is not None and re.match(download_location, info[f]['data_file']):
             continue
         if (info[f]['state'] == 'Downloading' or info[f]['state'] == 'Checking'):
             continue
 
         tracker = info[f]['tracker']
-        ratio = info[f]['ratio']
-        seedtime = info[f]['seedtime']
+        ratio = float(info[f]['ratio'])
+        seedtime = int(info[f]['seedtime'])
 
         if type == 'done':
             #if (args.verbose): print("torrents marked 'done' by the client")
@@ -544,7 +548,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             #print(cleanup_ratio)
             if tracker in cleanup_ratio: continue
             test_ratio = cleanup_ratio['default'] if ('default' in cleanup_ratio) else 1.0
-            if (ratio >= test_ratio):
+            if (ratio >= float(test_ratio)):
                 delete.append(f)
         elif type == 'public_seedtime':
             #if (args.verbose): print("public torrents that have served their time")
@@ -557,19 +561,22 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             #if (args.verbose): print("all torrents that have served their ratio")
             test_ratio = cleanup_ratio['default'] if ('default' in cleanup_ratio) else 1.0
             if (tracker in cleanup_ratio): test_ratio = cleanup_ratio[tracker]
-            if (ratio >= test_ratio):
+            #print("RATIO: ratio:{} test_ratio:{}".format(ratio, float(test_ratio)))
+            if (ratio >= float(test_ratio)):
+                print("delete " + f)
                 delete.append(f)
         elif type == "ratio1":
             #if (args.verbose): print("all torrents with a ratio > 1")
-            test_ratio = 1
-            if (ratio >= test_ratio):
+            test_ratio = 1.0
+            #print("RATIO1: {}, ratio:{} test_ratio:{}".format(info[f]['name'], ratio, float(test_ratio)))
+            if (float(ratio) >= test_ratio):
                 delete.append(f)
         elif type == "seedtime":
             #if (args.verbose): print("all torrents that have served their time")
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
             if (tracker in cleanup_seedtime): test_seedtime = cleanup_seedtime[tracker]
             test_seedtime = test_seedtime * 60 * 60 * 24
-            #print("{}({}):{} {}".format(f, tracker, seedtime, test_seedtime))
+            #print("SEEDTIME: {}, {}, seedtime:{} test_seedtime:{}".format(info[f]['id'], info[f]['name'], seedtime, test_seedtime))
             if (seedtime >= test_seedtime):
                 delete.append(f)
     return delete
