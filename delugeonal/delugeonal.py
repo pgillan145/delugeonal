@@ -928,7 +928,7 @@ def setup():
 
     # TODO: Make this load everything in the 'sites' directory.
     # TODO: Add a user configurable 'sites' directory for custom modules.
-    mediasitelibs = [ '.sites.eztv', '.sites.ipt', '.sites.tgx', '.sites.torrenting' ]
+    mediasitelibs = [ '.mediasites.eztv', '.mediasites.ipt', '.mediasites.tgx', '.mediasites.torrenting' ]
     if (mediasitelibs is not None and len(mediasitelibs) > 0):
         for mediasitelib in (mediasitelibs):
             site = importlib.import_module(mediasitelib, 'delugeonal')
