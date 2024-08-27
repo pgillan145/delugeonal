@@ -67,9 +67,9 @@ download_overrides = { 'Family Guy': { 'resolution': '720p', 'codec': 'H.265' },
 # Libraries
 # ---------
 # Python objects to use for access to various services. See FUTURE DOCUMENTATION for more information.
-mediadblibs = [ '.dbs.thetvdb', '.dbs.imdb' ]
-mediaserverlib = .servers.plex
-torrentclientlib = .clients.deluge
+mediadblibs = [ '.mediadbs.thetvdb', '.mediadbs.imdb' ]
+mediaserverlib = .mediaservers.plex
+torrentclientlib = .torrentclients.deluge
 
 # Torrent Client Maintenance settings
 # -----------------------------------
