@@ -1,10 +1,14 @@
 import delugeonal.torrentclient
+import datetime
 from dumper import dump
 import json
 #import os
 import re
 import subprocess
 #import time
+
+
+months = {'Jan':1, 'Feb':2, 'Mar':3, 'Apr':4, 'May':5, 'Jun':6, 'Jul':7, 'Aug':8, 'Sep':9, 'Oct':10, 'Nov':11, 'Dec':12}
 
 class TorrentClient(delugeonal.torrentclient.TorrentClient):
     def __init__(self, config):
@@ -90,8 +94,16 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 if (s):
                     info[f]["state"] = s.groups()[0]
 
-                s = re.search('^  Seeding Time:\s+.*? \((\d+) seconds\)$', l)
+                #  Date added:       Sun Aug 11 01:28:02 2024
+                s = re.search('^  Date added:\s+... (...) (\d\d) (\d\d):(\d\d):(\d\d) (\d\d\d\d)$', l)
                 if (s):
+                    date_added = datetime.datetime(int(s.groups()[5]), months[s.groups()[0]], int(s.groups()[1]), int(s.groups()[2]), int(s.groups()[3]), int(s.groups()[4]))
+                    info[f]['date_added'] = date_added
+                    info[f]['seedtime'] = int((datetime.datetime.now() - date_added).total_seconds())
+
+                #  Seeding Time:     19 hours (69844 seconds)
+                s = re.search('^  Seeding Time:\s+.*? \((\d+) seconds\)$', l)
+                if (s and 'seedtime' not in info[f]):
                     secs = int(s.groups()[0])
                     info[f]["seedtime"] = secs
 
