@@ -119,7 +119,7 @@ def add(directory, args = minorimpact.default_arg_flags):
         if (args.dryrun is False):
             add_torrent = client.add_torrent(data)
             if (args.verbose): print(add_torrent)
-            if (re.search('responded: "success"', add_torrent)):
+            if (re.search('responded: "?success"?', add_torrent)):
                 if (args.verbose): print("deleting {}".format(f))
                 os.remove(directory + '/' + f)
 
@@ -460,7 +460,7 @@ def fill(search_string, args = minorimpact.default_arg_flags):
         season = '0' + season if int(season) < 10 else season
         episode = '0' + episode if int(episode) < 10 else episode
 
-        search_string = re.sub(' \(\d\d\d\d\)$', '', show)
+        search_string = re.sub(' \\(\\d\\d\\d\\d\\)$', '', show)
         search_string = '{} S{}E{}'.format(search_string, season, episode)
         if (args.verbose): print("searching for '{}'".format(search_string))
         for site in (mediasites):
@@ -535,7 +535,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
                 continue
             max_ratio = config['cleanup']['max_ratio'] 
 
-            if (len(max_ratio) > 0 and re.search('[^0-9\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
+            if (len(max_ratio) > 0 and re.search('[^0-9\\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
                 delete.append(f)
                 continue
         elif type == 'public':
@@ -591,7 +591,7 @@ def media_files(dirname, video_formats = ['mp4', 'mkv'], count = 0):
         if (os.path.isdir(dirname + '/' + f)):
             count = media_files(dirname + '/' + f, count=count)
             continue
-        elif (re.search('\.(' + video_regex + '|rar)$', f)):
+        elif (re.search('\\.(' + video_regex + '|rar)$', f)):
             count = count + 1
     return count
 
@@ -619,7 +619,7 @@ def move_media(args = minorimpact.default_arg_flags):
     while churn > 0:
         churn = 0
         for f in os.listdir(download_dir):
-            if (re.match('\.', f)): continue
+            if (re.match('\\.', f)): continue
             size = minorimpact.dirsize(download_dir + '/' + f)
             mtime = os.path.getmtime(download_dir + '/' + f)
             if (f in files):
@@ -651,8 +651,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
     if (os.path.isdir(filename)):
         for f in os.listdir(filename):
-            if (re.match('\.', f) or re.match('Sample', f)): continue
-            if (re.search('\.(' + video_regex + '|rar)$', f)):
+            if (re.match('\\.', f) or re.match('Sample', f)): continue
+            if (re.search('\\.(' + video_regex + '|rar)$', f)):
                 process_media_dir(filename + '/' + f, args = args)
         return
 
@@ -661,12 +661,12 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     basename = os.path.basename(filename)
     dirname = os.path.dirname(filename)
     basename, extension = os.path.splitext(basename)
-    extension = re.sub("^\.", "", extension)
+    extension = re.sub("^\\.", "", extension)
     if extension == "rar":
         with rarfile.RarFile(filename) as rf:
             namelist = rf.namelist()
             new_file = namelist[0]
-            if (re.search("\.(" + video_regex + ")$", new_file) and len(namelist) == 1):
+            if (re.search("\\.(" + video_regex + ")$", new_file) and len(namelist) == 1):
                 if (args.verbose):print("extracting {}.{}".format(basename, extension))
                 if (args.dryrun is False):
                     try:
