@@ -151,7 +151,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                         tracker = {}
                         line = 1
                         continue
-                    s = re.search('^  Tracker \d+: (?P<protocol>https?|udp)://(?P<name>[^:]+):(?P<port>\d+)', lt)
+                    s = re.search('^  Tracker \\d+: (?P<protocol>https?|udp)://(?P<name>[^:]+):(?P<port>\\d+)', lt)
                     if (s):
                         g = s.groupdict()
                         #tracker['name'] = g['names']
@@ -160,10 +160,18 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                         tracker['name'] = '{}.{}'.format(names[1],names[0])
                         tracker['port'] = g['port']
                         tracker['protocol'] = g['protocol']
+                    else:
+                        #  Tracker 0: routing.bgp.technology:443
+                        s = re.search('^  Tracker \\d+: (?P<name>[^:]+):(?P<port>\\d+)', lt)
+                        if (s):
+                            g = s.groupdict()
+                            #tracker['name'] = g['names']
+                            names = g['name'].split('.')
+                            names = names[::-1]
+                            tracker['name'] = '{}.{}'.format(names[1],names[0])
+                            tracker['port'] = g['port']
+                            tracker['protocol'] = ''
 
-                        #info[f]['tracker'] = s.groups()[0]
-                        #break
-                        #info[f]["trackerstatus"] = s.groups()[1]
                     #s = re.search('^  (\S+) in tier \d', lt)
                     if (s):
                         s = re.search('^  Got a list of \d+ ', lt)
