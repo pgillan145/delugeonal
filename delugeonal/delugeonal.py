@@ -118,7 +118,7 @@ def add(directory, args = minorimpact.default_arg_flags):
         if (args.dryrun is False):
             add_torrent = client.add_torrent(data)
             if (args.verbose): print(add_torrent)
-            if (re.search('responded: "success"', add_torrent)):
+            if (re.search('responded: "?success"?', add_torrent)):
                 if (args.verbose): print("deleting {}".format(f))
                 os.remove(directory + '/' + f)
 

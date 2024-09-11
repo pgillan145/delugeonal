@@ -63,7 +63,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
             if (len(t) == 0 or re.match('ID ', t) or re.match('Sum: ', t)):
                 continue
 
-            m = re.search('^\s*(?P<id>\d+)\s+', t)
+            m = re.search('^\\s*(?P<id>\\d+)\\s+', t)
             if (m is None): continue
             g = m.groupdict()
             id = g['id']
@@ -71,7 +71,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
 
             f = None
             for l in info_str.split('\n'):
-                s = re.search("^  Name: (\S.+)$", l)
+                s = re.search("^  Name: (\\S.+)$", l)
                 if (s):
                     f = s.groups()[0]
                     #info[f] = {"name":f, "orig_torrent_file":self.get_torrent_file(f, config=deluge_config, verbose=verbose), "data_file":self.get_data_file(f, config=deluge_config, verbose=verbose), "ratio":0.0, "tracker":None, "trackerstatus":None, "state":None}
@@ -86,23 +86,23 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 if (s):
                     info[f]["data_file"] = '{}/{}'.format(s.groups()[0], f)
 
-                s = re.search("^  Ratio: ([\d\.]+)", l)
+                s = re.search("^  Ratio: ([\\d\\.]+)", l)
                 if (s):
                     info[f]["ratio"] = float(s.groups()[0])
 
-                s = re.search("^  State: (\S+)", l)
+                s = re.search("^  State: (\\S+)", l)
                 if (s):
                     info[f]["state"] = s.groups()[0]
 
                 #  Date added:       Sun Aug 11 01:28:02 2024
-                s = re.search('^  Date added:\s+... (...) (\d\d) (\d\d):(\d\d):(\d\d) (\d\d\d\d)$', l)
+                s = re.search('^  Date added:\\s+... (...) (\\d\\d) (\\d\\d):(\\d\\d):(\\d\\d) (\\d\\d\\d\\d)$', l)
                 if (s):
                     date_added = datetime.datetime(int(s.groups()[5]), months[s.groups()[0]], int(s.groups()[1]), int(s.groups()[2]), int(s.groups()[3]), int(s.groups()[4]))
                     info[f]['date_added'] = date_added
                     info[f]['seedtime'] = int((datetime.datetime.now() - date_added).total_seconds())
 
                 #  Seeding Time:     19 hours (69844 seconds)
-                s = re.search('^  Seeding Time:\s+.*? \((\d+) seconds\)$', l)
+                s = re.search('^  Seeding Time:\\s+.*? \\((\\d+) seconds\\)$', l)
                 if (s and 'seedtime' not in info[f]):
                     secs = int(s.groups()[0])
                     info[f]["seedtime"] = secs
@@ -111,7 +111,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                     upload_value = info[f]['ratio']/int(info[f]['seedtime']/3600)
                     info[f]['upload_value'] = upload_value
 
-                s = re.search("^  Total size: ([\d\.]+) (\w+) ", l)
+                s = re.search("^  Total size: ([\\d\\.]+) (\\w+) ", l)
                 if (s):
                     size = 0
                     if (s.groups()[1] == "GB"):
@@ -151,7 +151,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                         tracker = {}
                         line = 1
                         continue
-                    s = re.search('^  Tracker \d+: (?P<protocol>https?|udp)://(?P<name>[^:]+):(?P<port>\d+)', lt)
+                    s = re.search('^  Tracker \\d+: (?P<protocol>https?|udp)://(?P<name>[^:]+):(?P<port>\\d+)', lt)
                     if (s):
                         g = s.groupdict()
                         #tracker['name'] = g['names']
@@ -160,13 +160,21 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                         tracker['name'] = '{}.{}'.format(names[1],names[0])
                         tracker['port'] = g['port']
                         tracker['protocol'] = g['protocol']
+                    else:
+                        #  Tracker 0: routing.bgp.technology:443
+                        s = re.search('^  Tracker \\d+: (?P<name>[^:]+):(?P<port>\\d+)', lt)
+                        if (s):
+                            g = s.groupdict()
+                            #tracker['name'] = g['names']
+                            names = g['name'].split('.')
+                            names = names[::-1]
+                            tracker['name'] = '{}.{}'.format(names[1],names[0])
+                            tracker['port'] = g['port']
+                            tracker['protocol'] = ''
 
-                        #info[f]['tracker'] = s.groups()[0]
-                        #break
-                        #info[f]["trackerstatus"] = s.groups()[1]
                     #s = re.search('^  (\S+) in tier \d', lt)
                     if (s):
-                        s = re.search('^  Got a list of \d+ ', lt)
+                        s = re.search('^  Got a list of \\d+ ', lt)
                         tracker['status'] = 'ok'
                     else:
                         s = re.search('^  Got an error ', lt)
