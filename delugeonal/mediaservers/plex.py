@@ -60,7 +60,12 @@ class MediaServer(delugeonal.mediaserver.MediaServer):
             test_search_year = m.group(2)
 
         try:
-            shows = self.plex.library.section('TV Shows').search(title=test_search_string, year=test_search_year, maxresults=1 )
+            #print(f"test_search_string:'{test_search_string}'")
+            #print(f"test_search_year:'{test_search_year}'")
+            if (test_search_year is not None):
+                shows = self.plex.library.section('TV Shows').search(title=test_search_string, year=test_search_year, maxresults=1 )
+            else:
+                shows = self.plex.library.section('TV Shows').search(title=test_search_string, maxresults=1 )
         except NotFound as e:
             raise delugeonal.mediaserver.TitleNotFoundException(repr(e))
 

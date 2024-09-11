@@ -15,7 +15,7 @@ class MediaSite(delugeonal.mediasite.site):
             return []
 
         items = []
-        r = requests.get('https://eztv.re/ezrss.xml')
+        r = requests.get('https://eztvx.to/ezrss.xml')
         root = ET.fromstring(r.text)
 
         for item in root.findall('.//item'):

@@ -18,7 +18,6 @@ import requests
 import shutil
 import sys
 import time
-from uravo import uravo
 import uuid
 
 cache = {}
@@ -302,10 +301,8 @@ def download(downloads, args = minorimpact.default_arg_flags):
                     break
 
             if (title is None):
-                uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'yellow', 'Summary':"Can't get {} title for {}".format(db.name, item_title)})
                 if (args.verbose): print(" ... FAILED: couldn't find {} title for {}".format(db.name, item_title))
                 continue
-            uravo.event({'AlertGroup':'db_title', 'AlertKey':item_title, 'Severity':'green', 'Summary':"Got {} title for {}".format(db.name, item_title)})
 
         episode_key = title
         if (daily):
@@ -330,17 +327,14 @@ def download(downloads, args = minorimpact.default_arg_flags):
                     exists = mserver.exists(title, year=item['year'], month=item['month'], day=item['day'], resolution = item['resolution'], args = args)
                 else:
                     exists = mserver.exists(title, season=item['season'], episode=item['episode'], resolution = item['resolution'], args = args)
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'green', 'Summary':"Got {} title for '{}'".format(mserver.name, title)})
             except delugeonal.mediaserver.TitleNotFoundException as e:
                 if (args.verbose): print(" ... FAILED: can't get {} title for '{}'".format(mserver.name, title))
                 # Make an exception and allow the download of a show that's not in the media server *if* it's the first episode
                 #   of a season.
                 if (item['episode'] != 1):
-                    uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':repr(e)})
                     continue
             except Exception as e:
                 if (args.verbose): print(" ... FAILED: {}".format(repr(e)))
-                uravo.event({'AlertGroup':'server_title', 'AlertKey':title, 'Severity':'yellow', 'Summary':repr(e)})
                 continue
 
             if (exists):
@@ -460,7 +454,7 @@ def fill(search_string, args = minorimpact.default_arg_flags):
         season = '0' + season if int(season) < 10 else season
         episode = '0' + episode if int(episode) < 10 else episode
 
-        search_string = re.sub(' \(\d\d\d\d\)$', '', show)
+        search_string = re.sub(' \\(\\d\\d\\d\\d\\)$', '', show)
         search_string = '{} S{}E{}'.format(search_string, season, episode)
         if (args.verbose): print("searching for '{}'".format(search_string))
         for site in (mediasites):
@@ -535,7 +529,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
                 continue
             max_ratio = config['cleanup']['max_ratio'] 
 
-            if (len(max_ratio) > 0 and re.search('[^0-9\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
+            if (len(max_ratio) > 0 and re.search('[^0-9\\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
                 delete.append(f)
                 continue
         elif type == 'public':
@@ -591,7 +585,7 @@ def media_files(dirname, video_formats = ['mp4', 'mkv'], count = 0):
         if (os.path.isdir(dirname + '/' + f)):
             count = media_files(dirname + '/' + f, count=count)
             continue
-        elif (re.search('\.(' + video_regex + '|rar)$', f)):
+        elif (re.search('\\.(' + video_regex + '|rar)$', f)):
             count = count + 1
     return count
 
@@ -619,7 +613,7 @@ def move_media(args = minorimpact.default_arg_flags):
     while churn > 0:
         churn = 0
         for f in os.listdir(download_dir):
-            if (re.match('\.', f)): continue
+            if (re.match('\\.', f)): continue
             size = minorimpact.dirsize(download_dir + '/' + f)
             mtime = os.path.getmtime(download_dir + '/' + f)
             if (f in files):
@@ -651,8 +645,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
     if (os.path.isdir(filename)):
         for f in os.listdir(filename):
-            if (re.match('\.', f) or re.match('Sample', f)): continue
-            if (re.search('\.(' + video_regex + '|rar)$', f)):
+            if (re.match('\\.', f) or re.match('Sample', f)): continue
+            if (re.search('\\.(' + video_regex + '|rar)$', f)):
                 process_media_dir(filename + '/' + f, args = args)
         return
 
@@ -661,25 +655,23 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
     basename = os.path.basename(filename)
     dirname = os.path.dirname(filename)
     basename, extension = os.path.splitext(basename)
-    extension = re.sub("^\.", "", extension)
+    extension = re.sub("^\\.", "", extension)
     if extension == "rar":
         with rarfile.RarFile(filename) as rf:
             namelist = rf.namelist()
             new_file = namelist[0]
-            if (re.search("\.(" + video_regex + ")$", new_file) and len(namelist) == 1):
+            if (re.search("\\.(" + video_regex + ")$", new_file) and len(namelist) == 1):
                 if (args.verbose):print("extracting {}.{}".format(basename, extension))
                 if (args.dryrun is False):
                     try:
                         rf.extractall(path=dirname)
                     except Exception as e:
                         print("failed to extract {}.{}\n{}".format(basename, extension, e))
-                        uravo.alert(AlertGroup="move_media", AlertKey=filename, Severity=3, Summary="failed to extract {}.{}".format(basename, extension))
                         return
                     shutil.move(filename, filename + ".done")
                     process_media_dir(dirname + "/" + new_file, args = args)
             else:
                 print("{}.{} is weird".format(basename, extension))
-                uravo.alert(AlertGroup="move_media", AlertKey=filename, Severity=3, Summary="{}.{} is weird".format(basename, extension))
         return
 
     if (extension not in video_formats): return
@@ -749,9 +741,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
         if (tv_dir is None and title is None):
             print("Can't find a valid title for {}".format(filename))
-            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=3, Summary="Can't find a valid title for {}".format(filename))
             return
-        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="Found a valid title for {}:{}".format(filename, title))
 
         if (tv_dir is None and title is not None):
             tv_dir = media_dirs[0] + '/' + config['default']['tv_dir'] + '/' + title
@@ -770,10 +760,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                 if (args.debug): print(new_basename)
 
         if (os.path.exists(tv_dir + "/" + new_basename + "." + extension) and args.yes):
-            uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=3, Summary="{}/{}.{} already exists.".format(tv_dir, new_basename, extension))
             if (args.verbose): print("{}/{}.{} already exists.".format(tv_dir, new_basename, extension))
             return
-        uravo.alert(AlertGroup="move_media_overwrite", AlertKey=filename, Severity=0, Summary="{}/{}.{} doesn't exist.".format(tv_dir, new_basename, extension))
 
         # Get user confimation before we move/delete anything.
         c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="move {}.{} to {}/{}.{}? (Y/n) ".format(basename, extension, tv_dir, new_basename, extension), echo=True).lower()
@@ -790,7 +778,6 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
 
             if (args.dryrun is False):
                 shutil.move(filename, tv_dir + '/' + new_basename + '.' + extension)
-                uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {}.{} to {}".format(basename, extension, tv_dir))
             if (os.path.exists(dirname + '/' + basename + '.srt')):
                 if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, tv_dir, new_basename))
                 if (args.dryrun is False):
@@ -828,9 +815,7 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
                         movie_dir = media_dir + '/' + config['default']['movie_dir'] + '/' + title
 
         if (title is None):
-            uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='yellow', Summary="Can't find a title for {}".format(filename))
             return
-        uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity='green', Summary="Found '{}' for {}".format(title, filename))
 
         if (movie_dir is None):
             movie_dir = media_dirs[0] + '/' + config['default']['movie_dir'] + '/' + title
@@ -842,10 +827,8 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             new_basename = new_basename + ' - ' + meta
 
         if (os.path.exists(movie_dir + '/' + new_basename + '.' + extension) and args.yes):
-            uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=3, Summary="{}/{}.{} already exists.".format(movie_dir, new_basename, extension))
             if (args.verbose): print("{}/{}.{} already exists.".format(movie_dir, new_basename, extension));
             return
-        uravo.alert(AlertGroup='move_media_overwrite', AlertKey=filename, Severity=0, Summary="{}/{}.{} doesn't exist.".format(movie_dir, new_basename, extension))
 
         # Move and delete the file.
         c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="move {}.{} to {}/{}.{}? (Y/n) ".format(basename, extension, movie_dir, new_basename, extension), echo=True).lower()
@@ -860,7 +843,6 @@ def process_media_dir(filename, args = minorimpact.default_arg_flags):
             if (args.verbose): print("moving {}.{} to {}.{}".format(basename, extension, new_basename, extension))
             if (args.dryrun == False):
                     shutil.move(filename, movie_dir + '/' + new_basename + '.' + extension)
-                    uravo.alert(AlertGroup='move_media', AlertKey=filename, Severity=0, Summary="moved {}.{} to {}/{}.{}".format(basename, extension, movie_dir, new_basename, extension))
             if (os.path.exists(dirname + '/' + basename + '.srt')):
                 if (args.verbose): print("moving {}.srt to {}/{}.en.srt".format(basename, movie_dir, title))
                 if (args.dryrun is False): shutil.move(dirname + '/' + basename + '.srt', movie_dir + '/' + title + '.en.srt')
@@ -927,8 +909,7 @@ def setup():
         mserver = server.MediaServer(config, cache = cache)
 
     # TODO: Make this load everything in the 'sites' directory.
-    # TODO: Add a user configurable 'sites' directory for custom modules.
-    mediasitelibs = [ '.mediasites.eztv', '.mediasites.ipt', '.mediasites.tgx', '.mediasites.torrenting' ]
+    mediasitelibs = eval(config['default']['mediasitelibs']) if 'mediasitelibs' in config['default'] and config['default']['mediasitelibs'] is not None else None
     if (mediasitelibs is not None and len(mediasitelibs) > 0):
         for mediasitelib in (mediasitelibs):
             site = importlib.import_module(mediasitelib, 'delugeonal')
@@ -1021,7 +1002,8 @@ def write_cache():
     if (config is not None and 'default' in config and 'cache_file' in config['default']):
         cache_file = config['default']['cache_file']
         #print("write_cache(): cache_file = '" + cache_file + "'")
-        os.makedirs(os.path.basename(cache_file), exist_ok=True)
+        path, basename = os.path.split(cache_file)
+        os.makedirs(path, exist_ok=True)
         #print("writing cache_file:" + cache_file)
         with open(cache_file, 'wb') as f:
             pickle.dump(cache, f)

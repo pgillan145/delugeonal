@@ -20,7 +20,7 @@ setup(
         ],
     description="Automate and control multiple aspects of a torrent/media infrastructure.",
     entry_points = { "console_scripts": [ "delugeonal = delugeonal:main" ] },
-    install_requires=['dumper', 'fuzzywuzzy', 'IMDbPy', 'minorimpact', 'parse-torrent-title', 'plexapi', 'pyyaml', 'tvdb_v4_official', 'uravo', 'bencode.py', 'xmltodict'],
+    install_requires=['cinemagoer', 'dumper', 'fuzzywuzzy', 'minorimpact', 'parse-torrent-title', 'plexapi', 'Python-Levenshtein', 'pyyaml', 'rarfile', 'tvdb_v4_official > 1.0.7', 'bencode.py', 'xmltodict'],
     license='GPLv3',
     long_description = readme,
     long_description_content_type = 'text/markdown',
