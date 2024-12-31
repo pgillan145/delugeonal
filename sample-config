@@ -87,6 +87,8 @@ wait_for_file_move = True
 free_percent = 5
 # Skip any torrents whose names match any of the regular expressions in this array.
 ignore = [ 'Marvel', '\.iso$' ]
+# Which on which to check for space
+storage_location = /
 
 # Media Servers
 [plex]
@@ -108,3 +110,16 @@ rss_url = "https://iptorrents.com/t.rss?u=XXXXXX;tp=XXXXX;22;99;download;subscri
 # Deluge 1.3.15
 # Full path of the deluge-console script
 deluge_console = "/Applications/Deluge.app/Contents/MacOS/deluge-console"
+
+#[transmission]
+# These values are only necessary if transmission rpc is configured on a different port or requires login credentials.
+# host = localhost
+# port = 9091
+# user = username
+# password = password
+#
+# Location of the transmission settings file.
+# settings = /etc/transmission-daemon/settings.json
+#
+# Location of the transmission-remote binary
+# transmission-remote = /usr/bin/transmission-remote

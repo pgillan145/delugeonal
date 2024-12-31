@@ -49,7 +49,7 @@ def main():
     parser.add_argument('--move_media', metavar = 'DIR', help = "Move media files from the download directory (or DIR, if specified) to the appropriate media folders", nargs='?', const=config['default']['download_dir'] )
     parser.add_argument('--rss', help = "Check media site rss feeds for new downloads.", action = 'store_true')
     parser.add_argument('--search', metavar = 'SEARCH',  help = "Search media sites for SEARCH.", nargs=1)
-    if (config['default']['snapshot_dir'] is not None):
+    if ('snapshot_dir' in config['default'] and config['default']['snapshot_dir'] is not None):
         parser.add_argument('--snapshot', metavar = 'SNAPSHOT', help = "Create or load a data snapshot to/from {}/SNAPSHOT for testing purposes. Generates a unique identifier by default.".format(config['default']['snapshot_dir']), nargs='?', const = default_snapshot, default=None)
     parser.add_argument('--torrents', help = "List active torrents.", action = 'store_true')
     parser.add_argument('--resolution', metavar = 'RES',  help = "Search for torrents with a resolution of RES", nargs=1)
@@ -87,7 +87,8 @@ def add(directory, args = minorimpact.default_arg_flags):
     free_percent = 5
     if ('cleanup' in config and 'free_percent' in config['cleanup']):
         free_percent = int(config['cleanup']['free_percent'])
-    total, used, free = shutil.disk_usage('/')
+    storage_location = config['cleanup']['storage_location'] if ('storage_location' in config['cleanup']) else '/'
+    total, used, free = shutil.disk_usage(storage_location)
     target_free = total * (free_percent/100)
 
     for f in os.listdir(directory):
@@ -131,7 +132,8 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
     free_percent = 5
     if ('free_percent' in config['cleanup']):
         free_percent = int(config['cleanup']['free_percent'])
-    total, used, free = shutil.disk_usage('/')
+    storage_location = config['cleanup']['storage_location'] if ('storage_location' in config['cleanup']) else '/'
+    total, used, free = shutil.disk_usage(storage_location)
     target_free = total * (free_percent/100)
 
     if (args.force is True):
@@ -159,7 +161,7 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
 
         target = criteria['target'] if 'target' in criteria else 0
         if (target > 0):
-            total, used, free = shutil.disk_usage('/')
+            total, used, free = shutil.disk_usage(storage_location)
             if (free > target):
                 return
 
@@ -193,7 +195,7 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
                     time.sleep(1)
                     if (args.verbose): print(del_torrent)
                     if (target > 0):
-                        total, used, free = shutil.disk_usage('/')
+                        total, used, free = shutil.disk_usage(storage_location)
                         if (free > target):
                             return
 
@@ -486,6 +488,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         download_location = client_config['download_location']
     elif 'download-dir' in client_config:
         download_location = client_config['download-dir']
+    wait_for_file_move = True if (config['cleanup']['wait_for_file_move'] == 'True') else False
 
     if 'move_completed' in client_config and client_config['move_completed']:
         download_location = client_config['move_completed_path']
@@ -504,9 +507,9 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         x = x + 1
         #print("X={}".format(x))
         #dump(info[f])
-        if config['cleanup']['wait_for_file_move'] and info[f]['data_file'] is not None and re.match(download_location, info[f]['data_file']):
+        if wait_for_file_move and info[f]['data_file'] is not None and re.match(download_location, info[f]['data_file']):
             continue
-        if (info[f]['state'] == 'Downloading' or info[f]['state'] == 'Checking'):
+        if (info[f]['state'] == 'Downloading' or info[f]['state'] == 'Checking' or info[f]['state'] == 'Up'):
             continue
 
         tracker = info[f]['tracker']

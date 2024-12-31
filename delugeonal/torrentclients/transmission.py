@@ -30,11 +30,25 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
     def _do_command(self, command = []):
         if (len(command) == 0):
             return
+
         #dump(self.config)
-        command.insert(0, self.config['transmission']['transmission_remote'])
-        #dump(command)
-        #print(' '.join(command))
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+        base_command = []
+        base_command.insert(0, self.config['transmission']['transmission_remote'])
+        host = self.config['transmission']['host'] if 'host' in self.config['transmission'] else None
+        port = self.config['transmission']['port'] if 'port' in self.config['transmission'] else None
+        user = self.config['transmission']['user'] if 'user' in self.config['transmission'] else None
+        password = self.config['transmission']['password'] if 'password' in self.config['transmission'] else None
+
+        if (host is not None and port is not None):
+            base_command.append(f'{host}:{port}')
+        if (user is not None and password is not None):
+            base_command = base_command + ['-n', f'{user}:{password}']
+
+        full_command = base_command + command
+
+        #dump(full_command)
+        #print(' '.join(full_command))
+        proc = subprocess.Popen(full_command, stdout=subprocess.PIPE)
         #time.sleep(1)
         output  = str(proc.stdout.read(), 'utf-8')
         return output
@@ -43,7 +57,11 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
         pass
 
     def get_config(self):
-        with open('/etc/transmission-daemon/settings.json', 'r') as f:
+        settings = self.config['transmission']['settings'] if ('settings' in self.config['transmission']) else None
+        if (settings is None):
+            raise Exception("no settings file configured")
+
+        with open(settings, 'r') as f:
             config = json.load(f)
         return config
 
