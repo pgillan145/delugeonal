@@ -1,5 +1,5 @@
 import bencode
-import dumper
+from dumper import dump
 import os.path
 import re
 from urllib.parse import urlparse
@@ -16,6 +16,15 @@ class torrent():
         m = open(self.filename, 'rb')
         torrent_data = m.read()
         self.torrent_data = bencode.decode(torrent_data)
+        #dump(self.torrent_data)
+        #print(self.torrent_data['info']['name'])
+
+    def name(self):
+        if (self.torrent_data is None or 'info' not in self.torrent_data):
+            raise Exception("can't info from {}".format(self.filename))
+        if ('name' not in self.torrent_data['info']):
+            raise Exception("can't get name from {}".format(self.filename))
+        return self.torrent_data['info']['name']
 
     def size(self):
         total_size = 0
@@ -33,7 +42,7 @@ class torrent():
     def trackers(self):
         trackers = []
         if (self.torrent_data is None or 'announce-list' not in self.torrent_data):
-            raise Exception("can't gat a list of trackers from {}".format(self.filename))
+            raise Exception("can't get a list of trackers from {}".format(self.filename))
         for tracker in self.torrent_data['announce-list']:
             for t in tracker:
                 trackers.append(urlparse(t).hostname)
