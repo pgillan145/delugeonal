@@ -2,7 +2,7 @@ import delugeonal.torrentclient
 import datetime
 from dumper import dump
 import json
-#import os
+import os
 import re
 import subprocess
 #import time
@@ -112,6 +112,10 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                 if (s):
                     info[f]["state"] = s.groups()[0]
 
+                s = re.search("^  Location: (\\S+)", l)
+                if (s):
+                    info[f]["location"] = s.groups()[0]
+
                 #  Date added:       Sun Aug 11 01:28:02 2024
                 s = re.search('^  Date added:\\s+... (...) (\\d\\d) (\\d\\d):(\\d\\d):(\\d\\d) (\\d\\d\\d\\d)$', l)
                 if (s):
@@ -190,7 +194,7 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                             tracker['port'] = g['port']
                             tracker['protocol'] = ''
 
-                    #s = re.search('^  (\S+) in tier \d', lt)
+                    s = re.search('^  (\S+) in tier \d', lt)
                     if (s):
                         s = re.search('^  Got a list of \\d+ ', lt)
                         tracker['status'] = 'ok'
@@ -205,6 +209,31 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                     info[f]['tracker'] = t['name']
                     info[f]['trackerstatus'] = t['status']
                     if t['status'] == 'ok': break
+
+                location = info[f]['location']
+                max_file_size = 0
+                biggest_fie = None
+                files_str = self._do_command(['-t{}'.format(id), '--files'])
+                for file in files_str.split('\n'):
+                    s = re.search(r'\s+(\d+\.\d+)\s+(M|G|k)B\s+(.+)$', file)
+                    if (s):
+                        val = float(s.group(1))
+                        unit = s.group(2)
+                        file_name = s.group(3)
+                        if (unit == 'k'):
+                            val = val * 1000
+                        elif (unit == 'M'):
+                            val = val * 1000000
+                        elif (unit == 'G'):
+                            val = val * 1000000000
+
+                        if (val > max_file_size):
+                            max_file_size = val
+                            biggest_file = file_name
+
+                if (biggest_file is not None):
+                    info[f]['primary_file'] = location + '/' + biggest_file
+                    info[f]['primary_file_links'] = os.lstat(info[f]['primary_file']).st_nlink
 
         if (len(info.keys()) == 0):
             exception = "no torrent info"

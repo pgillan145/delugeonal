@@ -515,13 +515,13 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         tracker = info[f]['tracker']
         ratio = float(info[f]['ratio'])
         seedtime = int(info[f]['seedtime'])
+        links = os.lstat(info[f]['primary_file']).st_nlink
 
         if type == 'done':
             #if (args.verbose): print("torrents marked 'done' by the client")
             state = info[f]['state'].lower()
             if (state is None or state in ('finished', 'done')):
                 delete.append(f)
-                continue
         elif type == 'notracker':
             #if (args.verbose): print("checking for torrents with no tracker")
             trackerstatus = info[f]['trackerstatus']
@@ -534,7 +534,6 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
 
             if (len(max_ratio) > 0 and re.search('[^0-9\\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
                 delete.append(f)
-                continue
         elif type == 'public':
             #if (args.verbose): print("public torrents that have completed")
             if tracker in cleanup_ratio or tracker in cleanup_seedtime: continue
