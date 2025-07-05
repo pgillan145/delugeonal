@@ -16,6 +16,7 @@ import PTN
 import re
 import requests
 import shutil
+import subprocess
 import sys
 import time
 import uuid
@@ -133,7 +134,7 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
     if ('free_percent' in config['cleanup']):
         free_percent = int(config['cleanup']['free_percent'])
     storage_location = config['cleanup']['storage_location'] if ('storage_location' in config['cleanup']) else '/'
-    total, used, free = shutil.disk_usage(storage_location)
+    total, used, free = usage(storage_location)
     target_free = total * (free_percent/100)
 
     if (args.force is True):
@@ -161,9 +162,10 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
 
         target = criteria['target'] if 'target' in criteria else 0
         if (target > 0):
-            total, used, free = shutil.disk_usage(storage_location)
+            total, used, free = usage(storage_location)
+            if (args.verbose): print("free space:{}/{}".format(minorimpact.disksize(free, units='b'),minorimpact.disksize(target, units='b')))
             if (free > target):
-                return
+                continue
 
         description = criteria['description'] if 'description' in criteria else None
         if (args.verbose and description is not None): print("checking for {}".format(description))
@@ -185,6 +187,7 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
             if (args.verbose): print("  ratio:{:.1f} seedtime:{:.1f} upload_value:{:.5f} state:{} size:{}".format(info[f]['ratio'], info[f]['seedtime']/(3600*24), info[f]['upload_value'], info[f]['state'], minorimpact.disksize(info[f]['size'])))
             if (args.verbose): print("  Tracker: {}/{}".format(info[f]['tracker'], info[f]['trackerstatus']))
             if (args.verbose): print("  file:{}".format(info[f]['data_file']))
+            if (args.verbose): print("  primary_file:{} links:{}".format(info[f]['primary_file'], info[f]['primary_file_links']))
             c = 'y' if (args.yes) else minorimpact.getChar(default='y', end='\n', prompt="delete {}? (Y/n) ".format(f), echo=True).lower()
             if (c == 'q'):
                 sys.exit()
@@ -195,7 +198,8 @@ def cleanup(args = minorimpact.default_arg_flags, torrent_dir = None):
                     time.sleep(1)
                     if (args.verbose): print(del_torrent)
                     if (target > 0):
-                        total, used, free = shutil.disk_usage(storage_location)
+                        total, used, free = usage(storage_location)
+                        if (args.verbose): print("free space:{}/{}".format(minorimpact.disksize(free, units='b'),minorimpact.disksize(target, units='b')))
                         if (free > target):
                             return
 
@@ -515,13 +519,14 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         tracker = info[f]['tracker']
         ratio = float(info[f]['ratio'])
         seedtime = int(info[f]['seedtime'])
-        links = os.lstat(info[f]['primary_file']).st_nlink
+        nlinks = os.lstat(info[f]['primary_file']).st_nlink
 
         if type == 'done':
             #if (args.verbose): print("torrents marked 'done' by the client")
             state = info[f]['state'].lower()
             if (state is None or state in ('finished', 'done')):
                 delete.append(f)
+                #continue
         elif type == 'notracker':
             #if (args.verbose): print("checking for torrents with no tracker")
             trackerstatus = info[f]['trackerstatus']
@@ -534,10 +539,12 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
 
             if (len(max_ratio) > 0 and re.search('[^0-9\\.]', max_ratio) is None and float(max_ratio) > 0 and ratio >= float(max_ratio)):
                 delete.append(f)
+                #continue
         elif type == 'public':
             #if (args.verbose): print("public torrents that have completed")
             if tracker in cleanup_ratio or tracker in cleanup_seedtime: continue
-            delete.append(f)
+            if (nlinks == 1):
+                delete.append(f)
         elif type == 'public_ratio':
             #if (args.verbose): print("public torrents that have exceeded the minimum ratio")
             #print(info[f])
@@ -551,21 +558,21 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             if tracker in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
             test_seedtime = test_seedtime * 60 * 60 * 24
-            if (seedtime > test_seedtime):
+            if (seedtime > test_seedtime and nlinks == 1):
                 delete.append(f)
         elif type == 'ratio':
             #if (args.verbose): print("all torrents that have served their ratio")
             test_ratio = cleanup_ratio['default'] if ('default' in cleanup_ratio) else 1.0
             if (tracker in cleanup_ratio): test_ratio = cleanup_ratio[tracker]
             #print("RATIO: ratio:{} test_ratio:{}".format(ratio, float(test_ratio)))
-            if (ratio >= float(test_ratio)):
+            if (ratio >= float(test_ratio) and nlinks == 1):
                 print("delete " + f)
                 delete.append(f)
         elif type == "ratio1":
             #if (args.verbose): print("all torrents with a ratio > 1")
             test_ratio = 1.0
             #print("RATIO1: {}, ratio:{} test_ratio:{}".format(info[f]['name'], ratio, float(test_ratio)))
-            if (float(ratio) >= test_ratio):
+            if (float(ratio) >= test_ratio and nlinks == 1):
                 delete.append(f)
         elif type == "seedtime":
             #if (args.verbose): print("all torrents that have served their time")
@@ -573,7 +580,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             if (tracker in cleanup_seedtime): test_seedtime = cleanup_seedtime[tracker]
             test_seedtime = test_seedtime * 60 * 60 * 24
             #print("SEEDTIME: {}, {}, seedtime:{} test_seedtime:{}".format(info[f]['id'], info[f]['name'], seedtime, test_seedtime))
-            if (seedtime >= test_seedtime):
+            if (seedtime >= test_seedtime and nlinks == 1):
                 delete.append(f)
     return delete
 
@@ -999,6 +1006,26 @@ def transform(title, season, episode, args = minorimpact.default_arg_flags):
         return transformation
 
     return None
+
+def usage(location):
+    total = None
+    used = None
+    free = None
+
+    if ('use_quota' in config['default'] and config['default']['use_quota'] == 'True'):
+        #Disk quotas for user fafafauxhigh (uid 1099):
+        #     Filesystem   space   quota   limit   grace   files   quota   limit   grace
+        #     /dev/sdai1   2327G   2794G   2794G           65998       0       0
+        proc = subprocess.Popen(['quota'] , stdout=subprocess.PIPE)
+        output  = str(proc.stdout.read(), 'utf-8').split('\n')[2]
+        m = re.search(r'^\s+\S+\s+(\d+)\s+(\d+)\s+\d+\s+.+$', output)
+        used =  int(m.group(1))*1024
+        total = int(m.group(2))*1024
+        free = total - used
+    else:
+        total, used, free = shutil.disk_usage(storage_location)
+
+    return total, used, free
 
 def write_cache():
     if (config is not None and 'default' in config and 'cache_file' in config['default']):

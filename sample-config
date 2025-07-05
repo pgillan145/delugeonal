@@ -24,6 +24,9 @@ pidfile = /tmp/delugeonal.pid
 # Keep a record of what we started with vs. what we ended up with, for dev and troubleshooting purposes
 #match_debug_log = /tmp/delugeonal_match.log
 
+# Uncomment to use the output from `quota` rather than the actual space on disk. Useful for seedboxes.
+#use_quota = True
+
 # Downloads
 # ---------
 # Only download files matching this codec
