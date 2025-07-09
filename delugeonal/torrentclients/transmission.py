@@ -232,8 +232,11 @@ class TorrentClient(delugeonal.torrentclient.TorrentClient):
                             biggest_file = file_name
 
                 if (biggest_file is not None):
-                    info[f]['primary_file'] = location + '/' + biggest_file
-                    info[f]['primary_file_links'] = os.lstat(info[f]['primary_file']).st_nlink
+                    primary_filename = location + '/' + biggest_file
+                    info[f]['primary_file'] = primary_filename
+                    info[f]['primary_file_links'] = 0
+                    if (os.path.exists(primary_filename)):
+                        info[f]['primary_file_links'] = os.lstat(primary_filename).st_nlink
 
         if (len(info.keys()) == 0):
             exception = "no torrent info"

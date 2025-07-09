@@ -519,7 +519,9 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         tracker = info[f]['tracker']
         ratio = float(info[f]['ratio'])
         seedtime = int(info[f]['seedtime'])
-        nlinks = os.lstat(info[f]['primary_file']).st_nlink
+        nlinks = 0
+        if (os.path.exists(info[f]['primary_file'])):
+            nlinks = os.lstat(info[f]['primary_file']).st_nlink
 
         if type == 'done':
             #if (args.verbose): print("torrents marked 'done' by the client")
@@ -543,7 +545,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
         elif type == 'public':
             #if (args.verbose): print("public torrents that have completed")
             if tracker in cleanup_ratio or tracker in cleanup_seedtime: continue
-            if (nlinks == 1):
+            if (nlinks < 2):
                 delete.append(f)
         elif type == 'public_ratio':
             #if (args.verbose): print("public torrents that have exceeded the minimum ratio")
@@ -558,21 +560,21 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             if tracker in cleanup_seedtime: continue
             test_seedtime = cleanup_seedtime['default'] if ('default' in cleanup_seedtime) else 1
             test_seedtime = test_seedtime * 60 * 60 * 24
-            if (seedtime > test_seedtime and nlinks == 1):
+            if (seedtime > test_seedtime and nlinks < 2):
                 delete.append(f)
         elif type == 'ratio':
             #if (args.verbose): print("all torrents that have served their ratio")
             test_ratio = cleanup_ratio['default'] if ('default' in cleanup_ratio) else 1.0
             if (tracker in cleanup_ratio): test_ratio = cleanup_ratio[tracker]
             #print("RATIO: ratio:{} test_ratio:{}".format(ratio, float(test_ratio)))
-            if (ratio >= float(test_ratio) and nlinks == 1):
+            if (ratio >= float(test_ratio) and nlinks < 2):
                 print("delete " + f)
                 delete.append(f)
         elif type == "ratio1":
             #if (args.verbose): print("all torrents with a ratio > 1")
             test_ratio = 1.0
             #print("RATIO1: {}, ratio:{} test_ratio:{}".format(info[f]['name'], ratio, float(test_ratio)))
-            if (float(ratio) >= test_ratio and nlinks == 1):
+            if (float(ratio) >= test_ratio and nlinks < 2):
                 delete.append(f)
         elif type == "seedtime":
             #if (args.verbose): print("all torrents that have served their time")
@@ -580,7 +582,7 @@ def filter_torrents(criteria, args = minorimpact.default_arg_flags):
             if (tracker in cleanup_seedtime): test_seedtime = cleanup_seedtime[tracker]
             test_seedtime = test_seedtime * 60 * 60 * 24
             #print("SEEDTIME: {}, {}, seedtime:{} test_seedtime:{}".format(info[f]['id'], info[f]['name'], seedtime, test_seedtime))
-            if (seedtime >= test_seedtime and nlinks == 1):
+            if (seedtime >= test_seedtime and nlinks < 2):
                 delete.append(f)
     return delete
 
